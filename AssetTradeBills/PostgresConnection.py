@@ -11,6 +11,8 @@ class PostgresConnection:
         self.conn = None
         self.cursor = None
 
+#comment 2
+
     def connect(self):
         """Establish a connection to the PostgreSQL database."""
         try:
