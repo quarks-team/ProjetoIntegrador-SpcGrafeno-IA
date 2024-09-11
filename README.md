@@ -2,3 +2,4 @@
 Repositório dedicado ao desenvolvimento dos modelos de IA
 
 Analise de Duplicatas
+Teste in progress
