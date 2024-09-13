@@ -1,48 +1,58 @@
+import psycopg2
 import pandas as pd
-import PostgresConnection as conn
+from io import StringIO
+import numpy as np
 
+def insert_paymasters(df, db):
+    # Create a string buffer to hold CSV data
+    buffer = StringIO()
+    
+    # Handle NaN values and convert DataFrame to CSV format
+    df.fillna('', inplace=True)
+    
+    # Write DataFrame to buffer
+    df.to_csv(buffer, index=False, header=False)
+    
+    # Move the buffer cursor to the beginning
+    buffer.seek(0)
 
-
-asset_parts = pd.read_csv('asset_parts.csv', low_memory=False)
-
-print(asset_parts)
-
-
+    try:
+        with db.cursor() as cursor:
+            # Use copy_from to insert the CSV data in bulk
+            cursor.copy_expert('''
+                COPY paymasters (id, kind, name, document, email_primary, email_secondary, deleted_at, created_at, updated_at)
+                FROM STDIN
+                WITH (FORMAT CSV);
+            ''', buffer)
+        db.commit()
+        print("Data inserted successfully.")
+    except Exception as e:
+        db.rollback()
+        print(f"Error inserting data: {e}")
 
 # Example usage:
+# Load the DataFrame
+dfPaymasters = pd.read_csv('paymasters.csv')
 
-#db = conn(dbname='postgres', user='postgres', password='123')
-#db.connect()
+# Connect to your PostgreSQL database
+db = psycopg2.connect(dbname="postgres", user="postgres", password="123", host="localhost")
 
-#for(row in asset_parts):
-#    db.execute_query("INSERT INTO asset_parts (name) VALUES (%s);", (row[''],))
+def convert_to_utf8(df):
+    # Handle string columns
+    for col in df.select_dtypes(include=[object]):
+        df[col] = df[col].apply(lambda x: x.encode('utf-8', 'ignore').decode('utf-8') if pd.notna(x) else '')
 
-#print(results)
-#db.close()
-#results = db.fetch_query("SELECT * FROM asset_parts;")
-#print(results)
-#db.close()
+    # Handle numeric and other non-string columns by replacing NaN with None
+    for col in df.select_dtypes(exclude=[object]):
+        df[col] = df[col].apply(lambda x: None if pd.isna(x) else x)
 
+    return df
 
+# Load your CSV file into a DataFrame
+dfPaymasters = pd.read_csv('paymasters.csv')
 
-# Create a connection object
-db = PostgresConnection(dbname='your_dbname', user='your_username', password='your_password')
+# Convert all string columns to UTF-8 and handle NaN values properly
+dfPaymasters = convert_to_utf8(dfPaymasters)
 
-# Connect to the database
-db.connect()
-
-# Insert a new paymaster record
-db.insert_paymaster(
-    id='1234567890abcdef1234567890abcdef',  # Example UUID
-    kind='employee',
-    name='John Doe',
-    document='ID123456789',
-    email_primary='john.doe@example.com',
-    email_secondary='john.doe.secondary@example.com',
-    deleted_at=None,  # or '2024-09-11 12:00:00' if it's a timestamp
-    created_at='2024-09-11 12:00:00',
-    updated_at='2024-09-11 12:00:00'
-)
-
-# Close the connection
-db.close()
+# Now proceed with inserting the data into PostgreSQL
+insert_paymasters(dfPaymasters, db)

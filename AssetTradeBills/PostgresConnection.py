@@ -1,62 +1,59 @@
 import psycopg2
-from psycopg2 import sql, extras
 
 class PostgresConnection:
-    def __init__(self, dbname, user, password, host='localhost', port=5432):
+    def __init__(self, dbname, user, password, host='localhost'):
         self.dbname = dbname
         self.user = user
         self.password = password
         self.host = host
-        self.port = port
         self.conn = None
         self.cursor = None
 
-#comment 2
-
     def connect(self):
-        """Establish a connection to the PostgreSQL database."""
+        if self.conn is None:
+            try:
+                self.conn = psycopg2.connect(dbname=self.dbname, user=self.user, password=self.password, host=self.host)
+                self.cursor = self.conn.cursor()
+                print("Connection established.")
+            except Exception as e:
+                print(f"Error connecting to the database: {e}")
+                raise e  # Re-raise the exception for higher-level handling
+
+    def execute_query(self, query, params=None):
         try:
-            self.conn = psycopg2.connect(
-                dbname=self.dbname,
-                user=self.user,
-                password=self.password,
-                host=self.host,
-                port=self.port
-            )
-            self.cursor = self.conn.cursor(cursor_factory=extras.RealDictCursor)
-            print("Connection established.")
-        except psycopg2.Error as e:
-            print(f"Unable to connect to the database. Error: {e}")
+            self.cursor.execute(query, params)
+            self.conn.commit()  # Commit the transaction
+        except Exception as e:
+            print(f"Error executing query: {e}")
+            self.conn.rollback()  # Rollback the transaction on error
+            raise e  # Re-raise the exception for handling
+
+    def fetchone(self):
+        try:
+            return self.cursor.fetchone()
+        except Exception as e:
+            print(f"Error fetching one record: {e}")
+            raise e
+
+    def fetchall(self):
+        try:
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"Error fetching all records: {e}")
+            raise e
 
     def close(self):
-        """Close the connection and cursor."""
         if self.cursor:
             self.cursor.close()
         if self.conn:
             self.conn.close()
         print("Connection closed.")
 
-    def execute_query(self, query, params=None):
-        """Execute a query against the database."""
-        if not self.conn or not self.cursor:
-            raise Exception("Connection not established. Please call connect() first.")
-        try:
-            self.cursor.execute(query, params)
-            self.conn.commit()
-            print("Query executed successfully.")
-        except psycopg2.Error as e:
-            print(f"Error executing query: {e}")
+    def __enter__(self):
+        self.connect()
+        return self
 
-    def fetch_query(self, query, params=None):
-        """Execute a query and fetch all results."""
-        if not self.conn or not self.cursor:
-            raise Exception("Connection not established. Please call connect() first.")
-        try:
-            self.cursor.execute(query, params)
-            results = self.cursor.fetchall()
-            return results
-        except psycopg2.Error as e:
-            print(f"Error fetching query results: {e}")
-            return None
-
-
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        if exc_type:
+            print(f"Exception occurred: {exc_val}")
