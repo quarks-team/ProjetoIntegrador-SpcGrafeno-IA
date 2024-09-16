@@ -1,0 +1,6 @@
+id,kind,name,document,email_primary,email_secondary,deleted_at,created_at,updated_at
+060c9e74-1914-4ea5-a207-5f002fd50bcc,fund,Pagamento Leve,38043444021,maria.campos+resppagamento@spcgrafeno.com.br,,,2024-03-25 13:46:46.087288,2024-03-25 13:46:46.087288
+b570b816-e8f6-4d84-a969-1ce02dfcf933,fund,Teste Homologação - 26032024,89316171008,felipe.soares+teste.homologacao@spcgrafeno.com.br,,,2024-03-26 16:16:50.094415,2024-03-26 16:16:50.094415
+c4289f92-fde1-4efd-b18f-d7adaf959b43,administrator,Hebert,49326151000123,hebert.junior+pagador@spcgrafeno.com.br,,,2024-03-26 21:27:21.186674,2024-03-26 21:27:21.186674
+80a7dadd-a766-4d3b-93d8-73d9a9a8ca2d,other,Teste Homologação 04042024,23690658000178,teste@teste.com.br,,,2024-04-04 14:38:30.591727,2024-04-04 14:38:30.591727
+c9b44a40-a195-4491-ada1-671519f2344e,other,Jaimar,56724594553,jaimar.martins@spcgrafeno.com.br,jaimar.martins+sap@spcgrafeno.com.br,,2024-07-03 20:57:21.207174,2024-07-04 19:04:51.205537
