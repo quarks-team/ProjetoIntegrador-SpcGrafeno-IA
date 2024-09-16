@@ -10,13 +10,13 @@ def convert_to_utf8(df):
     
     return df
 
-# Function to insert participants data into PostgreSQL
-def insert_participants(df, db):
+# Function to insert asset parts data into PostgreSQL
+def insert_asset_parts(df, db):
     # Explicitly cast float64 columns to string before filling NaN values
     for col in df.select_dtypes(include=[float]):
         df[col] = df[col].astype(str)
 
-    # Handle NaN values by replacing them with None
+    # Handle NaN values for timestamp columns by converting them to None (NULL in PostgreSQL)
     df.replace({pd.NA: None, 'nan': None}, inplace=True)
 
     # Create a string buffer to hold CSV data
@@ -32,7 +32,7 @@ def insert_participants(df, db):
         with db.cursor() as cursor:
             # Use copy_expert to insert the CSV data in bulk
             cursor.copy_expert('''
-                COPY participants (id, name, state, contact_phone_number, document_number, authorized_third_party_id, company_name, kind, paymaster_id)
+                COPY asset_parts (id, name, document_number, contact_email, contact_phone_number, deleted_at, created_at, updated_at, type)
                 FROM STDIN
                 WITH (FORMAT CSV, NULL 'NULL');
             ''', buffer)
@@ -43,16 +43,16 @@ def insert_participants(df, db):
         print(f"Error inserting data: {e}")
 
 # Load the CSV file into a DataFrame with mixed-type handling
-dfParticipants = pd.read_csv('participants.csv', dtype=str)
+dfAssetParts = pd.read_csv('asset_parts.csv', dtype=str)
 
 # Convert all string columns to UTF-8 and handle NaN values properly
-dfParticipants = convert_to_utf8(dfParticipants)
+dfAssetParts = convert_to_utf8(dfAssetParts)
 
 # Connect to your PostgreSQL database (replace credentials)
 db = psycopg2.connect(dbname="postgres", user="postgres", password="123", host="localhost")
 
-# Insert the data into PostgreSQL
-insert_participants(dfParticipants, db)
+# Now proceed with inserting the data into PostgreSQL
+insert_asset_parts(dfAssetParts, db)
 
 # Close the database connection
 db.close()
