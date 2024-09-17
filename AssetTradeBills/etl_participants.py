@@ -10,14 +10,29 @@ def convert_to_utf8(df):
     
     return df
 
+# Function to transform NaN values to NULL or empty string based on column
+# Function to transform NaN values to NULL or empty string based on column
+def transform_nan_values(df):
+    # Columns that should get empty strings instead of NULL
+    empty_string_columns = ['contact_phone_number', 'document_number', 'company_name', 'kind']
+
+    for col in df.columns:
+        if col in empty_string_columns:
+            # Replace NaN with empty string for these columns
+            df[col] = df[col].fillna('')
+        else:
+            # Replace NaN with None (interpreted as NULL in PostgreSQL)
+            df[col] = df[col].replace({pd.NA: None, 'nan': None, '': None})
+    
+    return df
 # Function to insert participants data into PostgreSQL
 def insert_participants(df, db):
-    # Explicitly cast float64 columns to string before filling NaN values
+    # Convert all float columns to string before handling NaN
     for col in df.select_dtypes(include=[float]):
         df[col] = df[col].astype(str)
 
-    # Handle NaN values by replacing them with None
-    df.replace({pd.NA: None, 'nan': None}, inplace=True)
+    # Transform NaN values based on the column
+    df = transform_nan_values(df)
 
     # Create a string buffer to hold CSV data
     buffer = StringIO()
