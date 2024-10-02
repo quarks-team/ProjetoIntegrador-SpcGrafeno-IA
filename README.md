@@ -1,3 +1,5 @@
+Link atualizado da IA: https://colab.research.google.com/drive/1XMAT60MJItnQ34SGyEmnsWe9QVVZPjZ4?usp=sharing
+
 # ProjetoIntegrador-SpcGrafeno-IA
 Repositório dedicado ao desenvolvimento dos modelos de IA
 
