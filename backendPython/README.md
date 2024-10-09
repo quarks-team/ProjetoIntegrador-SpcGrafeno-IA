@@ -15,7 +15,8 @@ Instruções para integração da IA treinada
 1. Visão Geral da Arquitetura
 A stack proposta utiliza uma API construída com FastAPI para integrar uma IA treinada e realizar as seguintes operações:
 
-Receber entradas via frontend: A API recebe as entradas de dados fornecidas pelo usuário para:
+Receber entradas via frontend: 
+A API recebe as entradas de dados fornecidas pelo usuário para:
 Realizar o cálculo de score (para algum tipo de análise preditiva).
 Predizer a finalização de duplicatas (ou realizar alguma previsão baseada nos dados).
 Processamento de dados via ETL: As transformações necessárias para preparar os dados antes de serem enviados à IA ocorrem através de scripts ETL integrados com a API.
@@ -23,17 +24,26 @@ A arquitetura base está dividida em:
 
 Frontend: Interface que coleta os dados e envia para a API.
 Backend (FastAPI): API que recebe os dados do frontend e encaminha para a IA treinada, além de realizar o processamento ETL.
+
 IA Treinada: Um modelo de IA pré-treinado que faz previsões e devolve os resultados à API.
+
 ETL: Scripts Python que executam transformações e limpeza dos dados antes de alimentar a IA.
+
 2. Configuração do Ambiente
+
 Dependências
 A stack requer as seguintes dependências no projeto:
 
 FastAPI: Para criar a API.
+
 Uvicorn: Para rodar o servidor FastAPI.
+
 pandas: Para manipulação e transformação de dados nas etapas ETL.
+
 SQLAlchemy (se for necessário trabalhar com bancos de dados).
+
 scikit-learn ou qualquer outra biblioteca de machine learning, dependendo do modelo IA utilizado.
+
 Você pode instalar todas as dependências do projeto executando o seguinte comando no diretório raiz do projeto:
 
 bash
@@ -52,6 +62,7 @@ pip install -r requirements.txt
 # Rodar as migrações do banco de dados (caso aplicável)
 alembic upgrade head  # Alembic ou outra ferramenta para migração, caso haja um banco de dados
 Execução da Aplicação
+
 Para rodar o backend Python com FastAPI, execute o comando:
 
 bash
@@ -65,6 +76,7 @@ O FastAPI inclui automaticamente uma interface Swagger para a documentação das
 Acesse a interface de documentação do Swagger após iniciar o servidor:
 Swagger UI: http://127.0.0.1:8000/docs
 Documentação em formato OpenAPI: http://127.0.0.1:8000/openapi.json
+
 O Swagger já estará configurado para documentar todas as rotas criadas na API. Para incluir descrições mais detalhadas para as rotas, você pode usar as anotações da própria FastAPI:
 
 python
