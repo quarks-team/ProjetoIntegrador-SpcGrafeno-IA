@@ -1,0 +1,64 @@
+name: Python CI Pipeline
+
+# A pipeline será acionada sempre que houver um push ou pull request em qualquer branch, exceto main
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches-ignore:
+      - main
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest  # Define que a pipeline rodará em um ambiente Ubuntu
+
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, 3.10]  # Rodar a pipeline em múltiplas versões do Python, se necessário
+
+    steps:
+    # Primeiro, verifica o código do repositório
+    - name: Check out the code
+      uses: actions/checkout@v3
+
+    # Configura o Python com a versão especificada
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    # Instala as dependências
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip  # Atualiza o pip
+        pip install -r requirements.txt  # Instala as dependências do projeto
+
+    # Executa os testes unitários e de integração
+    - name: Run tests
+      run: |
+        pytest --junitxml=results.xml  # Executa os testes com pytest e gera um relatório
+
+    # Verificação de estilo de código com flake8
+    - name: Lint with flake8
+      run: |
+        pip install flake8  # Instala o flake8
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics  # Verifica erros mais críticos
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics  # Permite warnings, mas sem falhar a execução
+
+    # Geração do relatório de cobertura de testes
+    - name: Generate coverage report
+      run: |
+        pip install coverage  # Instala a biblioteca coverage
+        coverage run -m pytest  # Executa os testes para cobertura
+        coverage report -m  # Gera o relatório de cobertura
+        coverage xml  # Exporta o relatório em XML para análise de ferramentas CI
+
+    # Se os testes passarem, isso indica que o pipeline foi bem-sucedido. Pode ser integrado com notificações ou outros passos
+    - name: Test and Coverage Passed
+      if: success()
+      run: echo "All tests passed, ready for merge!"
+
+    # Caso alguma etapa falhe, o pipeline será bloqueado
+    - name: Tests or L
