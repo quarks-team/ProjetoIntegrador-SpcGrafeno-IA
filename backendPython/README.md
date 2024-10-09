@@ -11,6 +11,7 @@ Como rodar o Swagger e documentar as rotas
 Como Rodar os Testes
 Documentação das Rotas da API
 Instruções para integração da IA treinada
+
 1. Visão Geral da Arquitetura
 A stack proposta utiliza uma API construída com FastAPI para integrar uma IA treinada e realizar as seguintes operações:
 
