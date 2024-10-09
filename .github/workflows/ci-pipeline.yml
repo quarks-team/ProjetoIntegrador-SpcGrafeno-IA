@@ -14,20 +14,16 @@ jobs:
 
     runs-on: ubuntu-latest  # Define que a pipeline rodará em um ambiente Ubuntu
 
-    strategy:
-      matrix:
-        python-version: [3.8, 3.9, 3.10]  # Rodar a pipeline em múltiplas versões do Python
-
     steps:
     # Primeiro, verifica o código do repositório
     - name: Check out the code
       uses: actions/checkout@v3
 
-    # Configura o Python com a versão especificada
-    - name: Set up Python ${{ matrix.python-version }}
+    # Configura o Python com a versão mais recente (padrão é a versão estável mais recente)
+    - name: Set up Python 3.x
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: '3.x'  # '3.x' usa a versão mais recente estável do Python
 
     # Instala as dependências
     - name: Install dependencies
