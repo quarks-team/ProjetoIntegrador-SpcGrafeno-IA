@@ -1,3 +1,203 @@
+# ENGLISH:
+
+## YAML Structure
+
+### Explanation:
+- **name:** Defines the name of the pipeline.
+- **on:** Defines the events that trigger the pipeline.
+  - **push:** Triggers the pipeline on pushes to branches, except for main.
+  - **branches-ignore:** Lists branches that will not trigger the pipeline (main).
+  - **pull_request:** Triggers the pipeline only on pull requests targeting main.
+  - **workflow_dispatch:** Allows manual execution of the workflow.
+
+<pre><code>
+name: Python CI Pipeline with Azure Deployment
+
+# The pipeline will trigger on pushes to any branch, except main, and on pull requests to main
+on:
+  push:
+    branches-ignore:
+      - main  # Ignore direct pushes to the main branch
+  pull_request:
+    branches:
+      - main  # Trigger the pipeline only for pull requests targeting the main branch
+  workflow_dispatch: # Manual trigger for workflows
+</code></pre>
+
+## Job de Build
+
+## Build Job
+
+### Explanation:
+- **jobs:** Defines one or more jobs to be executed.
+  - **build:** Name of the build job.
+  - **runs-on:** Specifies the environment in which the job will run (in this case, Ubuntu).
+  - **steps:** Lists the steps to be executed in the job.
+    - **Check out the code:** Uses the checkout action to get the repository code.
+
+<pre><code>
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Define que a pipeline rodará em um ambiente Ubuntu
+
+    steps:
+      # Primeiro, verifica o código do repositório
+      - name: Check out the code
+        uses: actions/checkout@v3
+</code></pre>
+
+## Continuation of the Build Job
+
+### Explanation:
+- **Set up Python:** Configures the version of Python (the latest available).
+
+<pre><code>
+      # Set up Python with the latest stable version
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'  # Use the latest stable version of Python
+</code></pre>
+
+- **Install dependencies:** Updates pip and installs the project dependencies specified in `requirements.txt`.
+
+<pre><code>
+      # Install the dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip  # Upgrade pip
+          pip install -r backendPython/requirements.txt  # Install project dependencies
+</code></pre>
+
+- **Run tests:** Navigates to the `backendPython` directory and executes tests using pytest, generating a report in XML format.
+
+<pre><code>
+      # Run unit tests and integration tests
+      - name: Run tests
+        run: |
+          cd backendPython
+          pytest --junitxml=results.xml  # Run tests with pytest and generate a report
+</code></pre>
+
+- **Generate coverage report:** Installs the coverage library, runs tests to collect coverage data, and generates coverage reports both in the console and in XML format.
+
+<pre><code>
+      # Generate coverage report
+      - name: Generate coverage report
+        run: |
+          pip install coverage  # Install the coverage library
+          coverage run -m pytest  # Run tests for coverage
+          coverage report -m  # Generate the coverage report
+          coverage xml  # Export the report in XML for CI tools
+</code></pre>
+
+- **Test and Coverage Passed:** If all tests succeed, prints a message indicating readiness to merge.
+
+<pre><code>
+      # If tests pass, the pipeline indicates success
+      - name: Test and Coverage Passed
+        if: success()
+        run: echo "All tests passed, ready for merge!"
+</code></pre>
+
+- **Tests or Lint Failed:** If any step fails, prints a message and exits the job with an error.
+
+<pre><code>
+      # If any step fails, the pipeline will be blocked
+      - name: Tests or Lint Failed
+        if: failure()
+        run: |
+          echo "There were failures in the tests or linting."
+          exit 1
+</code></pre>
+
+## Deploy Job
+
+### Explanation:
+- **deploy:** Name of the deploy job.
+- **runs-on:** Specifies that the job will run in an Ubuntu environment.
+- **needs:** Defines that this job depends on the build job, meaning it will only run after the completion of the build job.
+- **if:** Condition that checks if the current branch is main. This ensures that the deployment only occurs when a merge to main happens.
+
+<pre><code>                       
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'  # Trigger deploy only on main branch
+</code></pre>
+
+- **environment:** Defines the production environment where the application will be deployed.
+
+<pre><code>  
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+</code></pre>
+
+- **permissions:** Grants necessary permissions, such as the ability to request a JWT token.
+
+<pre><code>  
+    permissions:
+      id-token: write  # This is required for requesting the JWT
+</code></pre>
+
+### Continuation of the Deploy Job
+
+- **Download artifact from build job:** If there is an artifact (like a zip file with the code), this step downloads it.
+
+<pre><code>  
+    steps:
+      # Download artifact from build job (if you decide to create a zip for deployment)
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+</code></pre>
+
+- **Unzip artifact for deployment:** Unzips the artifact to prepare for deployment.
+
+<pre><code>  
+      # Unzip artifact for deployment
+      - name: Unzip artifact for deployment
+        run: unzip release.zip
+</code></pre>
+
+- **Login to Azure:** Logs into the Azure account using secure credentials stored in the repository secrets.
+
+<pre><code> 
+      # Login to Azure
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_CBF2DD4C72E24359BE3D9CABF42BB682 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_647D3E3A46B345479034447ED32C0767 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_E28204BC8E78421ABF9E700E60BB7F35 }}
+</code></pre>
+
+- **Deploy to Azure Web App:** Uses the Azure deployment action to deploy the application to the specified Azure Web App.
+
+<pre><code> 
+      # Deploy to Azure Web App
+      - name: 'Deploy to Azure Web App'
+        uses: azure/webapps-deploy@v3
+        id: deploy-to-webapp
+        with:
+          app-name: 'quarksia'
+          slot-name: 'Production'
+</code></pre>
+
+## Pipeline Workflow Summary
+
+- **Commits on branches other than main:**
+  - Only the build job is executed, which includes checking out the code, setting up Python, installing dependencies, running tests, and generating reports.
+  - No deploy job is executed.
+
+- **Pull Requests to the main branch:**
+  - The build job is executed as described, and if all tests pass, the deploy job will be triggered (because the condition `if: github.ref == 'refs/heads/main'` will be true).
+  - Thus, merging to the main branch triggers both CI and CD.
+
+# pt/BR:
+
 ## Estrutura do YAML
 
 ### Explicação:
