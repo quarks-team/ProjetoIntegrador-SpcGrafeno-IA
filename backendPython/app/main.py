@@ -1,22 +1,26 @@
+# app/main.py
+
 from fastapi import FastAPI
-from app.controllers import item_controller  # Supondo que este seja seu controller
+from app.controllers.data_controller import DataController
+from app.config import DatabaseConfig
 
-app = FastAPI(
-    title="Projeto Integrador API",
-    description="API para o Projeto Integrador SPC Grafeno - IA",
-    version="1.0.0",
-    openapi_tags=[
-        {
-            "name": "Items",
-            "description": "Operações relacionadas a items"
-        },
-        # Você pode adicionar mais tags aqui para categorizar endpoints
-    ]
-)
+app = FastAPI()
 
-# Inclui rotas dos controllers
-app.include_router(item_controller.router)
+db_params = DatabaseConfig.get_params()
+data_controller = DataController(db_params)
 
-@app.get("/", tags=["Healthcheck"])
-async def read_root():
-    return {"message": "API is running!"}
+@app.on_event("startup")
+async def startup_event():
+    # Aqui você pode fazer inicializações se necessário
+    print("FastAPI is starting up...")
+
+@app.post("/process-data/")
+async def process_data(file_path: str):
+    """Processa os dados do arquivo Excel e insere no banco de dados."""
+    return data_controller.handle_data_processing(file_path)
+
+@app.get("/")
+async def root():
+    """Endpoint raiz."""
+    return {"message": "API está funcionando. Acesse /docs para ver a documentação."}
+

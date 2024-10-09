@@ -1,12 +1,17 @@
+# app/config.py
+
 import os
-from pydantic import BaseSettings
+from dotenv import load_dotenv
 
-class Settings(BaseSettings):
-    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./test.db")  # URL do banco de dados
-    secret_key: str = os.getenv("SECRET_KEY", "mysecret")  # Chave secreta para autenticação
-    api_v1_prefix: str = "/api/v1"  # Prefixo da API
+load_dotenv()  # Carrega as variáveis do .env
 
-    class Config:
-        env_file = ".env"  # Arquivo de variáveis de ambiente
-
-settings = Settings()
+class DatabaseConfig:
+    @staticmethod
+    def get_params():
+        return {
+            "host": os.getenv("DATABASE_HOST"),
+            "port": os.getenv("DATABASE_PORT"),
+            "user": os.getenv("DATABASE_USER"),
+            "password": os.getenv("DATABASE_PASSWORD"),
+            "dbname": os.getenv("DATABASE_NAME"),
+        }

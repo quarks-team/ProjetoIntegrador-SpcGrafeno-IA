@@ -1,5 +1,7 @@
 backend para exportar as APIS Python, tanto na questão de ETLs como para o uso das IAs
 
+![alt text](image.png)
+
 
 Visão Geral da Arquitetura
 Configuração do Ambiente
