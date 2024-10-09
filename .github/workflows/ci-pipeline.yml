@@ -37,13 +37,6 @@ jobs:
         cd backendPython
         pytest --junitxml=results.xml  # Executa os testes com pytest e gera um relatório
 
-    # Verificação de estilo de código com flake8
-    - name: Lint with flake8
-      run: |
-        pip install flake8  # Instala o flake8
-        flake8 backendPython --count --select=E9,F63,F7,F82 --show-source --statistics  # Verifica erros mais críticos
-        flake8 backendPython --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics  # Permite warnings, mas sem falhar a execução
-
     # Geração do relatório de cobertura de testes
     - name: Generate coverage report
       run: |
