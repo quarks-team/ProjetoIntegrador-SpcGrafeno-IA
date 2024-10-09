@@ -1,392 +1,154 @@
 # ENGLISH:
 
-## YAML Structure
+# CI/CD Pipeline Documentation
 
-### Explanation:
-- **name:** Defines the name of the pipeline.
-- **on:** Defines the events that trigger the pipeline.
-  - **push:** Triggers the pipeline on pushes to branches, except for main.
-  - **branches-ignore:** Lists branches that will not trigger the pipeline (main).
-  - **pull_request:** Triggers the pipeline only on pull requests targeting main.
-  - **workflow_dispatch:** Allows manual execution of the workflow.
+This documentation describes how the CI/CD pipeline works, how to interpret the logs generated at each stage, and how to fix errors and failures.
 
-<pre><code>
-name: Python CI Pipeline with Azure Deployment
+## 1. Pipeline Overview
+The pipeline is configured to run automatically on different events:
+- **Pushes** to branches other than `main`.
+- **Pull requests** to the `main` branch.
+- **Manual execution** via `workflow_dispatch`.
 
-# The pipeline will trigger on pushes to any branch, except main, and on pull requests to main
-on:
-  push:
-    branches-ignore:
-      - main  # Ignore direct pushes to the main branch
-  pull_request:
-    branches:
-      - main  # Trigger the pipeline only for pull requests targeting the main branch
-  workflow_dispatch: # Manual trigger for workflows
-</code></pre>
+It includes the following stages:
+1. Code checkout.
+2. Python environment setup.
+3. Dependency installation.
+4. Unit and integration test execution.
+5. Test coverage report generation.
+6. Automated deployment (only for merges to the `main` branch).
 
-## Job de Build
+## 2. How the Pipeline Works
 
-## Build Job
+### Events that trigger the pipeline:
+- **Push:** When a commit is made to any branch other than `main`, the pipeline runs the build and test stages.
+- **Pull request:** The pipeline is triggered when a pull request is opened or updated, ensuring that the `main` branch only receives validated code.
+- **Manual Trigger:** The pipeline can be manually triggered via the GitHub interface (using `workflow_dispatch`).
 
-### Explanation:
-- **jobs:** Defines one or more jobs to be executed.
-  - **build:** Name of the build job.
-  - **runs-on:** Specifies the environment in which the job will run (in this case, Ubuntu).
-  - **steps:** Lists the steps to be executed in the job.
-    - **Check out the code:** Uses the checkout action to get the repository code.
+### Pipeline Stages:
+1. **Build:**
+   - Code checkout.
+   - Python environment setup.
+   - Dependency installation.
+   - Test execution and coverage report generation.
+2. **Deploy:**
+   - Only for merges to the `main` branch, the application is automatically deployed to the production environment.
 
-<pre><code>
-jobs:
-  build:
-    runs-on: ubuntu-latest  # Define que a pipeline rodará em um ambiente Ubuntu
+## 3. Logs and Feedback
 
-    steps:
-      # Primeiro, verifica o código do repositório
-      - name: Check out the code
-        uses: actions/checkout@v3
-</code></pre>
+The CI/CD pipeline generates detailed logs for each step, allowing for easy identification of errors. These logs are available directly within the GitHub Actions interface and are displayed after the execution of each job.
 
-## Continuation of the Build Job
+### How to interpret the logs:
+- **Build Steps:**
+  - On success, the steps for dependency installation and test execution should complete without error messages.
+  - If an error occurs during dependency installation (e.g., incompatible versions), the log will show which package failed to install.
+  - The test coverage report will be displayed at the end of the test execution step, showing the percentage of code covered by unit and integration tests.
 
-### Explanation:
-- **Set up Python:** Configures the version of Python (the latest available).
+- **Deploy Steps (for merges to `main`):**
+  - The deployment step log will show whether the login to Azure was successful and whether the application was deployed correctly.
+  - If deployment fails, the logs will provide information about the failure (e.g., authentication error with Azure, artifact extraction failure, or environment configuration errors).
 
-<pre><code>
-      # Set up Python with the latest stable version
-      - name: Set up Python 3.x
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'  # Use the latest stable version of Python
-</code></pre>
+## 4. Fixing Common Errors or Failures
 
-- **Install dependencies:** Updates pip and installs the project dependencies specified in `requirements.txt`.
+### Common Errors:
+1. **Dependency Installation Failure:**
+   - Check the `requirements.txt` file to ensure all dependencies are listed correctly with appropriate versions.
+   - Upgrade the package manager (`pip install --upgrade pip`) before installing dependencies to avoid errors with outdated versions.
 
-<pre><code>
-      # Install the dependencies
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip  # Upgrade pip
-          pip install -r backendPython/requirements.txt  # Install project dependencies
-</code></pre>
+2. **Unit or Integration Test Failures:**
+   - The `pytest` logs will show details about which tests failed and why.
+   - Revisit the tested code and apply necessary fixes.
 
-- **Run tests:** Navigates to the `backendPython` directory and executes tests using pytest, generating a report in XML format.
+3. **Deployment Failure:**
+   - Ensure the Azure authentication credentials (stored as `secrets`) are correct and valid.
+   - Check the permissions configured in the deploy job to ensure the pipeline has the necessary access to the production environment.
+   - If the problem is related to the artifact file, verify that the `release.zip` file was generated correctly during the build.
 
-<pre><code>
-      # Run unit tests and integration tests
-      - name: Run tests
-        run: |
-          cd backendPython
-          pytest --junitxml=results.xml  # Run tests with pytest and generate a report
-</code></pre>
+## 5. Accessing Test Reports and Coverage
+- The test coverage report is generated after the test execution and can be accessed directly in the pipeline logs.
 
-- **Generate coverage report:** Installs the coverage library, runs tests to collect coverage data, and generates coverage reports both in the console and in XML format.
+## 6. Pipeline Documentation
+The complete configuration of the CI/CD pipeline is described in the YAML file located in the repository at `.github/workflows/`.
 
-<pre><code>
-      # Generate coverage report
-      - name: Generate coverage report
-        run: |
-          pip install coverage  # Install the coverage library
-          coverage run -m pytest  # Run tests for coverage
-          coverage report -m  # Generate the coverage report
-          coverage xml  # Export the report in XML for CI tools
-</code></pre>
+## 7. Configuration and Maintenance
+- **Environments:** The pipeline is configured to run in the `Ubuntu-latest` environment.
+- **Credentials:** Credentials for authentication with Azure and other sensitive variables are stored in the repository `secrets`.
+- **Future Adjustments:** The pipeline can be adjusted directly in the YAML file to support new tests, environments, or tools.
 
-- **Test and Coverage Passed:** If all tests succeed, prints a message indicating readiness to merge.
-
-<pre><code>
-      # If tests pass, the pipeline indicates success
-      - name: Test and Coverage Passed
-        if: success()
-        run: echo "All tests passed, ready for merge!"
-</code></pre>
-
-- **Tests or Lint Failed:** If any step fails, prints a message and exits the job with an error.
-
-<pre><code>
-      # If any step fails, the pipeline will be blocked
-      - name: Tests or Lint Failed
-        if: failure()
-        run: |
-          echo "There were failures in the tests or linting."
-          exit 1
-</code></pre>
-
-## Deploy Job
-
-### Explanation:
-- **deploy:** Name of the deploy job.
-- **runs-on:** Specifies that the job will run in an Ubuntu environment.
-- **needs:** Defines that this job depends on the build job, meaning it will only run after the completion of the build job.
-- **if:** Condition that checks if the current branch is main. This ensures that the deployment only occurs when a merge to main happens.
-
-<pre><code>                       
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main'  # Trigger deploy only on main branch
-</code></pre>
-
-- **environment:** Defines the production environment where the application will be deployed.
-
-<pre><code>  
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-</code></pre>
-
-- **permissions:** Grants necessary permissions, such as the ability to request a JWT token.
-
-<pre><code>  
-    permissions:
-      id-token: write  # This is required for requesting the JWT
-</code></pre>
-
-### Continuation of the Deploy Job
-
-- **Download artifact from build job:** If there is an artifact (like a zip file with the code), this step downloads it.
-
-<pre><code>  
-    steps:
-      # Download artifact from build job (if you decide to create a zip for deployment)
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: python-app
-</code></pre>
-
-- **Unzip artifact for deployment:** Unzips the artifact to prepare for deployment.
-
-<pre><code>  
-      # Unzip artifact for deployment
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
-</code></pre>
-
-- **Login to Azure:** Logs into the Azure account using secure credentials stored in the repository secrets.
-
-<pre><code> 
-      # Login to Azure
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_CBF2DD4C72E24359BE3D9CABF42BB682 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_647D3E3A46B345479034447ED32C0767 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_E28204BC8E78421ABF9E700E60BB7F35 }}
-</code></pre>
-
-- **Deploy to Azure Web App:** Uses the Azure deployment action to deploy the application to the specified Azure Web App.
-
-<pre><code> 
-      # Deploy to Azure Web App
-      - name: 'Deploy to Azure Web App'
-        uses: azure/webapps-deploy@v3
-        id: deploy-to-webapp
-        with:
-          app-name: 'quarksia'
-          slot-name: 'Production'
-</code></pre>
-
-## Pipeline Workflow Summary
-
-- **Commits on branches other than main:**
-  - Only the build job is executed, which includes checking out the code, setting up Python, installing dependencies, running tests, and generating reports.
-  - No deploy job is executed.
-
-- **Pull Requests to the main branch:**
-  - The build job is executed as described, and if all tests pass, the deploy job will be triggered (because the condition `if: github.ref == 'refs/heads/main'` will be true).
-  - Thus, merging to the main branch triggers both CI and CD.
 
 # pt/BR:
 
-## Estrutura do YAML
+# CI/CD Pipeline Documentation
 
-### Explicação:
-- **name:** Define o nome do pipeline.
-- **on:** Define os eventos que acionam o pipeline.
-  - **push:** Aciona o pipeline em pushs para branches, exceto a main.
-  - **branches-ignore:** Lista de branches que não acionarão o pipeline (a main).
-  - **pull_request:** Aciona o pipeline apenas em pull requests que visam a main.
-  - **workflow_dispatch:** Permite a execução manual do workflow.
+Esta documentação descreve como a pipeline CI/CD funciona, como interpretar os logs gerados em cada etapa, e como corrigir erros e falhas.
 
-<pre><code>
-name: Python CI Pipeline with Azure Deployment
+## 1. Pipeline Overview
+A pipeline está configurada para rodar automaticamente em diferentes eventos:
+- **Pushes** para branches que não sejam a `main`.
+- **Pull requests** para a branch `main`.
+- **Execução manual** através do `workflow_dispatch`.
 
-# The pipeline will trigger on pushes to any branch, except main, and on pull requests to main
-on:
-  push:
-    branches-ignore:
-      - main  # Ignore direct pushes to the main branch
-  pull_request:
-    branches:
-      - main  # Trigger the pipeline only for pull requests targeting the main branch
-  workflow_dispatch: # Manual trigger for workflows
-</code></pre>
+Ela inclui as seguintes etapas:
+1. Verificação do código-fonte.
+2. Configuração do ambiente Python.
+3. Instalação de dependências.
+4. Execução de testes unitários e de integração.
+5. Geração de relatórios de cobertura de testes.
+6. Deploy automatizado (apenas em merges para a branch `main`).
 
-## Job de Build
+## 2. Funcionamento da Pipeline
 
-### Explicação:
-- **jobs:** Define um ou mais jobs a serem executados.
-  - **build:** Nome do job de construção (build).
-  - **runs-on:** Especifica o ambiente em que o job será executado (neste caso, Ubuntu).
-  - **steps:** Lista de etapas a serem executadas no job.
-    - **Check out the code:** Utiliza a ação checkout para obter o código do repositório.
+### Eventos que disparam a pipeline:
+- **Push:** Quando um commit é feito em qualquer branch, exceto `main`, a pipeline é executada, rodando as etapas de build e teste.
+- **Pull request:** A pipeline é acionada quando um pull request é aberto ou atualizado, garantindo que a branch `main` receba código validado.
+- **Manual Trigger:** A pipeline pode ser acionada manualmente via interface (usando `workflow_dispatch`).
 
-<pre><code>
-jobs:
-  build:
-    runs-on: ubuntu-latest  # Define que a pipeline rodará em um ambiente Ubuntu
+### Estágios da Pipeline:
+1. **Build:**
+   - Verificação do código (checkout).
+   - Configuração do ambiente Python.
+   - Instalação de dependências.
+   - Execução de testes e geração de relatório de cobertura.
+2. **Deploy:**
+   - Somente em merges para a branch `main`, a aplicação é implantada automaticamente no ambiente de produção.
 
-    steps:
-      # Primeiro, verifica o código do repositório
-      - name: Check out the code
-        uses: actions/checkout@v3
-</code></pre>
+## 3. Logs e Feedback
 
-### Continuação do Job de Build
+A pipeline CI/CD gera logs detalhados para cada etapa, permitindo fácil identificação de erros. Estes logs estão disponíveis diretamente na interface do GitHub Actions e são exibidos logo após a execução de cada job.
 
-- **Set up Python:** Configura a versão do Python (a mais recente disponível).
+### Como interpretar os logs:
+- **Build Steps:**
+  - Em caso de sucesso, as etapas de instalação de dependências e execução de testes devem passar sem mensagens de erro.
+  - Caso algum erro ocorra durante a instalação de dependências (por exemplo, versões incompatíveis), o log exibirá qual pacote falhou na instalação.
+  - O relatório de cobertura de testes será exibido no final da etapa de testes, mostrando a porcentagem de código coberta pelos testes unitários e de integração.
 
-<pre><code>
-      # Set up Python with the latest stable version
-      - name: Set up Python 3.x
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'  # Use the latest stable version of Python
-</code></pre>
+- **Deploy Steps (para merges em `main`):**
+  - O log da etapa de deploy mostrará se o login no Azure foi bem-sucedido e se a aplicação foi implantada corretamente.
+  - Se o deploy falhar, os logs exibirão informações sobre a falha (por exemplo, erro de autenticação com o Azure, falha na extração do artefato ou erros de configuração do ambiente).
 
-- **Install dependencies:** Atualiza o pip e instala as dependências do projeto especificadas no `requirements.txt`.
+## 4. Corrigindo Possíveis Erros ou Falhas
 
-<pre><code>
-      # Install the dependencies
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip  # Upgrade pip
-          pip install -r backendPython/requirements.txt  # Install project dependencies
-</code></pre>
+### Erros Comuns:
+1. **Falha na Instalação de Dependências:**
+   - Verifique o arquivo `requirements.txt` para garantir que todas as dependências estão listadas corretamente com as versões apropriadas.
+   - Atualize o gerenciador de pacotes (`pip install --upgrade pip`) antes de instalar as dependências para evitar erros com versões antigas.
 
-- **Run tests:** Navega para o diretório `backendPython` e executa os testes usando pytest, gerando um relatório em formato XML.
+2. **Falha nos Testes Unitários ou de Integração:**
+   - Os logs do `pytest` mostrarão detalhes sobre quais testes falharam e o motivo da falha.
+   - Revisite o código testado e faça as correções necessárias.
 
-<pre><code>
-      # Run unit tests and integration tests
-      - name: Run tests
-        run: |
-          cd backendPython
-          pytest --junitxml=results.xml  # Run tests with pytest and generate a report
-</code></pre>
+3. **Falha no Deploy:**
+   - Certifique-se de que as credenciais de autenticação do Azure (armazenadas como `secrets`) estão corretas e válidas.
+   - Verifique as permissões configuradas no job de deploy para garantir que o pipeline tem acesso necessário ao ambiente de produção.
+   - Se o problema for relacionado ao arquivo de artefato, confirme que o arquivo `release.zip` foi gerado corretamente durante o build.
 
-- **Generate coverage report:** Instala a biblioteca coverage, executa os testes para coletar dados de cobertura, e gera relatórios de cobertura tanto no console quanto em formato XML.
+## 5. Acesso aos Relatórios e Cobertura de Testes
+- O relatório de cobertura de testes é gerado após a execução dos testes e pode ser acessado diretamente nos logs do pipeline.
 
-<pre><code>
-      # Generate coverage report
-      - name: Generate coverage report
-        run: |
-          pip install coverage  # Install the coverage library
-          coverage run -m pytest  # Run tests for coverage
-          coverage report -m  # Generate the coverage report
-          coverage xml  # Export the report in XML for CI tools
-</code></pre>
+## 6. Documentação da Pipeline
+A configuração completa da pipeline CI/CD está descrita no arquivo YAML localizado no repositório em `.github/workflows/`.
 
-- **Test and Coverage Passed:** Se todos os testes forem bem-sucedidos, imprime uma mensagem indicando que está pronto para mesclar.
-
-<pre><code>
-      # If tests pass, the pipeline indicates success
-      - name: Test and Coverage Passed
-        if: success()
-        run: echo "All tests passed, ready for merge!"
-</code></pre>
-
-- **Tests or Lint Failed:** Se qualquer etapa falhar, imprime uma mensagem e encerra o job com erro.
-
-<pre><code>
-      # If any step fails, the pipeline will be blocked
-      - name: Tests or Lint Failed
-        if: failure()
-        run: |
-          echo "There were failures in the tests or linting."
-          exit 1
-</code></pre>
-
-## Job de Deploy
-
-### Explicação:
-- **deploy:** Nome do job de implantação (deploy).
-- **runs-on:** Especifica que o job será executado em um ambiente Ubuntu.
-- **needs:** Define que este job depende do job de build, ou seja, só será executado após a conclusão do job de build.
-- **if:** Condição que verifica se o branch atual é a main. Isso garante que o deploy só ocorra quando houver uma mesclagem na main.
-
-<pre><code>                       
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main'  # Trigger deploy only on main branch
-</code></pre>
-
-- **environment:** Define o ambiente de produção onde a aplicação será implantada.
-
-<pre><code>  
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-</code></pre>
-
-- **permissions:** Concede permissões necessárias, como a capacidade de solicitar um token JWT.
-
-<pre><code>  
-    permissions:
-      id-token: write  # This is required for requesting the JWT
-</code></pre>
-
-### Continuação do Job de Deploy
-
-- **Download artifact from build job:** Se houver um artefato (como um zip com o código), este passo faz o download dele.
-
-<pre><code>  
-    steps:
-      # Download artifact from build job (if you decide to create a zip for deployment)
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: python-app
-</code></pre>
-
-- **Unzip artifact for deployment:** Descompacta o artefato para preparar a implantação.
-
-<pre><code>  
-      # Unzip artifact for deployment
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
-</code></pre>
-
-- **Login to Azure:** Realiza o login na conta do Azure usando credenciais seguras armazenadas nos segredos do repositório.
-
-<pre><code> 
-      # Login to Azure
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_CBF2DD4C72E24359BE3D9CABF42BB682 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_647D3E3A46B345479034447ED32C0767 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_E28204BC8E78421ABF9E700E60BB7F35 }}
-</code></pre>
-
-- **Deploy to Azure Web App:** Utiliza a ação de implantação do Azure para implantar a aplicação na Azure Web App especificada.
-
-<pre><code> 
-      # Deploy to Azure Web App
-      - name: 'Deploy to Azure Web App'
-        uses: azure/webapps-deploy@v3
-        id: deploy-to-webapp
-        with:
-          app-name: 'quarksia'
-          slot-name: 'Production'
-</code></pre>
-
-## Resumo do Funcionamento do Pipeline
-
-- **Commits em branches que não são a main:**
-  - Executam apenas o job de build, que inclui verificar o código, configurar o Python, instalar dependências, rodar testes e gerar relatórios.
-  - Não há execução do job de deploy.
-
-- **Pull Requests para a branch main:**
-  - Executam o job de build conforme descrito, e se todos os testes passarem, o job de deploy será acionado (porque a condição `if: github.ref == 'refs/heads/main'` será verdadeira).
-  - Portanto, a mesclagem para a branch main aciona tanto CI quanto CD.
+## 7. Configuração e Manutenção
+- **Ambientes:** O pipeline está configurado para rodar em ambiente `Ubuntu-latest`.
+- **Credenciais:** As credenciais para autenticação no Azure e outras variáveis sensíveis estão armazenadas nos `secrets` do repositório.
+- **Ajustes futuros:** A pipeline pode ser ajustada diretamente no arquivo YAML para suportar novos testes, ambientes ou ferramentas.
