@@ -19,7 +19,7 @@ def detectar_segmentos_asset_parts(df_asset_parts, endossantes_ids):
     segmentos = []
 
     for idx, row in df_asset_parts.iterrows():
-        nome_lower = str(row['name']).lower()  # Padronizar para minúsculas
+        nome_lower = str(row['name']).lower()   # Padronizar para minúsculas
         
         # Verificar se o item é endossante
         if row['id'] in endossantes_ids:
