@@ -1,6 +1,4 @@
-.env
-
+*.env
 analysis/Analise_Duplicatas.ipynb
-
 assetParts/asset_parts_com_segmentos.py
 assetParts/asset_parts_transformado_com_segmentos.parquet
