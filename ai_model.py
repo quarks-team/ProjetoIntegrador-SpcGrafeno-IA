@@ -15,25 +15,19 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 
-# IMPORTANT: NEED TO CHANGE THE PATH OF THE FILE
-base = pd.read_excel('/content/sample_data/dados_asset_bills.xlsx', sheet_name = 'Planilha1')
+base = pd.read_excel('/content/sample_data/table.xlsx', sheet_name = 'Planilha1')
 
 """#### Transform data"""
 
 base_test = base
 
-# Calculate the aging of due_date
-base_test['aging_due_date'] = (base_test['new_due_date'] -  base_test['due_date']).dt.days
-# Select useful columns
-base_test = base_test[['NOME_ENDOSSER', 'kind', 'state', 'aging_due_date', 'update_reason_kind']]
-# Filling the NaN values from column state for finished duplicates
-base_test['update_reason_kind'] =  base_test['update_reason_kind'].fillna('not canceled')
-# One hot encoding for kind
-base_test = pd.get_dummies(base_test, columns = ['kind'],dtype=int)
+base_test['a'] = (base_test.iloc[:,8] - base_test.iloc[:,9]).dt.days
+base_test = base_test[[base_test.iloc[:,18].name, base_test.iloc[:,4].name, base_test.iloc[:,5].name, base_test.iloc[:,19].name, base_test.iloc[:,16].name]]
+base_test.iloc[:,4] =  base_test.iloc[:,4].fillna('not canceled')
+base_test = pd.get_dummies(base_test, columns = [base_test.iloc[:,1].name],dtype=int)
 
-# One hot encoding to state
 # Separate the column for one hot
-categorical_attributes = ['state']
+categorical_attributes = [base_test.iloc[:,1].name]
 categorical_columns = base_test[categorical_attributes]
 # instance and train OneHotEncoder
 encoder = OneHotEncoder(handle_unknown='ignore')
@@ -45,9 +39,8 @@ enc_train = pd.DataFrame(data = encoded, columns = encoder.categories_)
 base_test = pd.concat([base_test,enc_train],axis=1)
 base_test.drop(categorical_attributes, axis=1, inplace=True)
 
-# One hot encoding for update_reason_kind
 # Separate the column for one hot
-categorical_attributes = ['update_reason_kind']
+categorical_attributes = [base_test.iloc[:,2].name]
 categorical_columns = base_test[categorical_attributes]
 # instance and train OneHotEncoder
 encoder = OneHotEncoder(handle_unknown='ignore')
@@ -62,94 +55,83 @@ base_test.drop(categorical_attributes, axis=1, inplace=True)
 # Rename columns
 base_test.columns
 
-base_test = base_test.rename(columns={ ('active',): "active", ('canceled',): "canceled", ('finished',): 'finished', ('not canceled',): 'not_canceled', ('operational_error',): 'operational_error', ('others',): 'others', ('reversal',): 'reversal'})
+base_test = base_test.rename(columns={ base_test.iloc[:,4].name: str(base_test.iloc[:,4].name)[2:-3], base_test.iloc[:,5].name: str(base_test.iloc[:,5].name)[2:-3],base_test.iloc[:,6].name: str(base_test.iloc[:,6].name)[2:-3], base_test.iloc[:,7].name: str(base_test.iloc[:,7].name)[2:-3], base_test.iloc[:,8].name: str(base_test.iloc[:,8].name)[2:-3], base_test.iloc[:,9].name: str(base_test.iloc[:,9].name)[2:-3], base_test.iloc[:,10].name: str(base_test.iloc[:,10].name)[2:-3]})
 
 base_test.isna().sum()
 
-base_test.head()
-
-function_dictionary = {'aging_due_date':'mean','kind_goods':'sum','kind_services':'sum', 'active':'sum', 'canceled':'sum', 'finished': 'sum', 'not_canceled': 'sum', 'operational_error': 'sum',	'others': 'sum',	'reversal': 'sum'}
-base_crazy = base_test
-base_test = base_test.groupby("NOME_ENDOSSER").aggregate(function_dictionary).reset_index(0)
+function_dictionary = {base_test.iloc[:,1].name:'mean',base_test.iloc[:,2].name:'sum',base_test.iloc[:,3].name:'sum', base_test.iloc[:,4].name:'sum', base_test.iloc[:,5].name:'sum', base_test.iloc[:,6].name: 'sum', base_test.iloc[:,7].name: 'sum', base_test.iloc[:,8].name: 'sum',	base_test.iloc[:,9].name: 'sum',	base_test.iloc[:,10].name: 'sum'}
+# base_crazy = base_test
+base_test = base_test.groupby(base_test.iloc[:,0].name).aggregate(function_dictionary).reset_index(0)
 
 base_nfe = base
 
-# base_nfe.groupby("NOME_ENDOSSER").agg({"nfe_number": pd.Series.nunique})
-# base_nfe.groupby(['NOME_ENDOSSER', 'nfe_number']).agg({'nfe_number': 'count'})
-base_nfe = base_nfe.groupby(["NOME_ENDOSSER", "nfe_number"]).agg({"id": pd.Series.nunique}).reset_index(0)
+base_nfe = base_nfe.groupby([base_nfe.iloc[:,18].name, base_nfe.iloc[:,2].name]).agg({base_nfe.iloc[:,0].name: pd.Series.nunique}).reset_index(0)
 
 base_nfe = base_nfe.reset_index(0)
 
-base_nfe = base_nfe.groupby("NOME_ENDOSSER").agg({"id": 'median'}).reset_index(0)
+base_nfe = base_nfe.groupby(base_nfe.iloc[:,1].name).agg({base_nfe.iloc[:,2].name: 'median'}).reset_index(0)
 
-base_test = base_test.set_index('NOME_ENDOSSER').join(base_nfe.set_index('NOME_ENDOSSER')).reset_index(0)
+base_test = base_test.set_index(base_nfe.iloc[:,0].name).join(base_nfe.set_index(base_nfe.iloc[:,0].name)).reset_index(0)
 
-base_test = base_test.rename(columns={ 'id': "installment median"})
+base_test = base_test.rename(columns={base_test.iloc[:,11].name: "installment median"})
 
-base_test.fillna(base_test['installment median'].median(), inplace=True)
+base_test.fillna(base_test[base_test.iloc[:,11].name].median(), inplace=True)
 
-base_test[base_test['active'] != 0].sort_values(by=['active'], ascending=True).head(10)
+base_test['t'] = base_test.iloc[:,4] + base_test.iloc[:,5] + base_test.iloc[:,6]
 
-base_test['total'] = base_test['active'] + base_test['canceled'] + base_test['finished']
-
-base_test.sort_values(by=['active'], ascending = False).head(10)
-
-base_test
-
-# create percentage of not canceled
-base_test['percent_not_canceled'] = base_test['not_canceled'] / base_test['total']
+base_test['pnc'] = base_test.iloc[:,7] / base_test.iloc[:,12]
 
 """#### Create scoring"""
 
-base_test['score_finished'] = np.where(
-    base_test["finished"] <= 5,(1000*base_test["finished"])/5,
+base_test['score_f'] = np.where(
+    base_test.iloc[:,6] <= 5,(1000*base_test.iloc[:,6])/5,
     np.where(
-        (base_test["finished"] > 5) & (base_test["finished"] <= 18),(3000*base_test["finished"])/18,
+        (base_test.iloc[:,6] > 5) & (base_test.iloc[:,6] <= 18),(3000*base_test.iloc[:,6])/18,
     np.where(
-        (base_test["finished"] > 18) & (base_test["finished"] <= 30), (4999*base_test["finished"])/30,
+        (base_test.iloc[:,6] > 18) & (base_test.iloc[:,6] <= 30), (4999*base_test.iloc[:,6])/30,
         5000
     )
         )
     )
 
-base_test['score_active'] = np.where(
-    base_test["active"] <= 40,(600*base_test["active"])/40,
+base_test['score_a'] = np.where(
+    base_test.iloc[:,4] <= 40,(600*base_test.iloc[:,4])/40,
     np.where(
-        (base_test["active"] > 40) & (base_test["active"] <= 199),(1800*base_test["active"])/199,
+        (base_test.iloc[:,4] > 40) & (base_test.iloc[:,4] <= 199),(1800*base_test.iloc[:,4])/199,
     np.where(
-        (base_test["active"] > 199) & (base_test["active"] <= 484), (2999*base_test["active"])/484,
+        (base_test.iloc[:,4] > 199) & (base_test.iloc[:,4] <= 484), (2999*base_test.iloc[:,4])/484,
         3000
     )
         )
     )
 
-base_test['score_total'] = np.where(
-    base_test["total"] <= 40,(400*base_test["total"])/40,
+base_test['score_t'] = np.where(
+    base_test.iloc[:,12] <= 40,(400*base_test.iloc[:,12])/40,
     np.where(
-        (base_test["total"] > 40) & (base_test["total"] <= 100),(1200*base_test["total"])/100,
+        (base_test.iloc[:,12] > 40) & (base_test.iloc[:,12] <= 100),(1200*base_test.iloc[:,12])/100,
     np.where(
-        (base_test["total"] > 100) & (base_test["total"] <= 200), (1999*base_test["total"])/200,
+        (base_test.iloc[:,12] > 100) & (base_test.iloc[:,12] <= 200), (1999*base_test.iloc[:,12])/200,
         2000
     )
         )
     )
 
-base_test['score_canceled'] = np.where(
-    base_test["canceled"] <= 13,(200*base_test["canceled"])/13,
+base_test['score_c'] = np.where(
+    base_test.iloc[:,5] <= 13,(200*base_test.iloc[:,5])/13,
     np.where(
-        (base_test["canceled"] > 13) & (base_test["canceled"] <= 35),(600*base_test["canceled"])/35,
+        (base_test.iloc[:,5] > 13) & (base_test.iloc[:,5] <= 35),(600*base_test.iloc[:,5])/35,
     np.where(
-        (base_test["canceled"] > 35) & (base_test["canceled"] <= 65), (999*base_test["canceled"])/65,
+        (base_test.iloc[:,5] > 35) & (base_test.iloc[:,5] <= 65), (999*base_test.iloc[:,5])/65,
         1000
     )
         )
     )
 
-base_test['score'] = base_test['score_finished'] + base_test['score_active'] + base_test['score_total'] - base_test['score_canceled']
+base_test.iloc[:,17]
 
-base_test.sort_values(by=['total'], ascending=False).head(10)
+base_test['s'] = base_test.iloc[:,14] + base_test.iloc[:,15] + base_test.iloc[:,16] - base_test.iloc[:,17]
 
-"""# IA - MODEL Nº2
+"""# IA - MODEL Nº1
 
 """
 
@@ -164,16 +146,14 @@ from sklearn.tree import DecisionTreeClassifier
 import graphviz
 from sklearn import tree
 
-base_test.describe()
-
 # Separate data for use
-base_model = base_test[['aging_due_date',	'kind_goods',	'kind_services',	'active',	'canceled',	'finished',	'not_canceled',	'installment median',	'total','score']]
-base_model = base_model[base_model['total'] <= 1000]
+base_model = base_test[[base_test.iloc[:,1].name,	base_test.iloc[:,2].name,	base_test.iloc[:,3].name,base_test.iloc[:,4].name,	base_test.iloc[:,5].name,	base_test.iloc[:,6].name,	base_test.iloc[:,7].name,	base_test.iloc[:,11].name,	base_test.iloc[:,12].name,base_test.iloc[:,18].name]]
+base_model = base_model[base_test.iloc[:,8] <= 1000]
 
 base_model.describe()
 
-X = base_model.loc[ : , base_model.columns != 'score']
-y = base_model['score']
+X = base_model.loc[ : , base_model.columns != base_model.iloc[:,9].name]
+y = base_model.iloc[:,9]
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
 
@@ -181,6 +161,8 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 sc = MinMaxScaler()
 X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
+
+X_train
 
 # Treina o modelo
 model = LinearRegression()
@@ -205,20 +187,19 @@ print(f'MSE: {mse}')
 print(f'RMSE: {rmse}')
 print(f'R²: {r2}')
 
-base_model.sort_values(by=['score'], ascending=False).head(10)
-
 # Try to predict score
-aging_due_date = 0
-kind_goods = 539
-kind_services	= 0
-active = 471
-canceled = 0
-finished	=68
-not_canceled	= 539
-installment_median	= 0
-total	= 539
+v1 = 0
+v2 = 520
+v3 = 19
+v4 = 471
+v5 = 0
+v6 = 68
+v7 = 539
+v8 = 0
+v9 = 539
 
-new_test = [aging_due_date,	kind_goods,	kind_services,	active,	canceled,	finished,	not_canceled,installment_median,	total	]
+new_test = [v1,v2,v3,v4,v5,v6,v7,v8,v9]
+
 
 X = np.array(new_test).reshape(1,-1)
 X = sc.transform(X)
@@ -226,6 +207,5 @@ print("Score do endossante:", model.predict(X))
 
 pesos = model.coef_
 intercepto = model.intercept_
-print('aging_due_date	kind_goods	kind_services	active		not_canceled	total')
 print( pesos)
 print("Intercepto:", intercepto)
