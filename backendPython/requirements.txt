@@ -1,0 +1,14 @@
+# Dependências para teste
+pytest==7.4.0  # Versão do pytest, ajuste conforme necessário
+requests==2.31.0  # Para fazer as requisições HTTP no teste
+httpx==0.24.0  # Para testes de integração
+httpx==0.24.0  
+
+
+# Outras dependências do projeto podem ser listadas aqui
+fastapi==0.95.2
+uvicorn==0.22.0
+psycopg2
+pydantic<2.0.0
+python-dotenv
+pandas
