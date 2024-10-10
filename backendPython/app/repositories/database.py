@@ -1,14 +1,16 @@
 # app/repositories/database.py
 
 import psycopg2
+from app.config import DatabaseConfig
 
 class PostgresConnection:
-    def __init__(self, host, port, user, password, dbname):
-        self.host = host
-        self.port = port
-        self.user = user
-        self.password = password
-        self.dbname = dbname
+    def __init__(self):
+        params = DatabaseConfig.get_params()
+        self.host = params["host"]
+        self.port = params["port"]
+        self.user = params["user"]
+        self.password = params["password"]
+        self.dbname = params["dbname"]
         self.connection = None
 
     def __enter__(self):
