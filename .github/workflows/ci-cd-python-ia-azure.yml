@@ -1,13 +1,14 @@
 name: Python CI Pipeline with Azure Deployment
 
-# The pipeline will trigger on pushes to any branch, except main, and on pull requests to main
+# The pipeline will trigger on pushes to any branch, including main, and pull requests to main
 on:
   push:
-    branches-ignore:
-      - main  # Ignore direct pushes to the main branch
+    branches:
+      - main  # Include direct pushes to main
+      - '**'  # Also include all other branches for testing
   pull_request:
     branches:
-      - main  # Trigger the pipeline only for pull requests targeting the main branch
+      - main  # Trigger the pipeline for pull requests targeting the main branch
   workflow_dispatch: # Manual trigger for workflows
 
 jobs:
@@ -60,7 +61,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/main'  # Trigger deploy only on main branch
+    if: github.ref == 'refs/heads/main'  # Ensure deploy runs only for main branch
     environment:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
