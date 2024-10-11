@@ -1,0 +1,15 @@
+# Dependências para teste
+pytest  # Versão do pytest, ajuste conforme necessário
+requests  # Para fazer as requisições HTTP no teste
+httpx # Para testes de integração  
+
+# Outras dependências do projeto podem ser listadas aqui
+fastapi
+uvicorn
+psycopg2
+pydantic
+python-dotenv
+pandas
+uvicorn
+scikit-learn
+joblib
