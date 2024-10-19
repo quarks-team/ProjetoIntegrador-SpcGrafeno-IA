@@ -37,8 +37,23 @@ async def predict(nome, data: InputData):
     X = np.array(variables).reshape(1, -1)
     X_scaled = scaler.transform(X)
     score = model.predict(X_scaled)
-    return date.today(),int(score[0]),data
+    return int(score[0]),data
 
 @app.get("/test-for/")
 async def for_test():
-    return base_with_names
+    list_endorser = []
+    for n, i in base_with_names.iterrows():
+        # print(base_with_names.iloc[[n]])
+        data = {
+            'renegotiation_delay_days' : 0,
+            'segment_products_count' : 0,
+            'segment_services_count' : 0,
+            'ongoing_transactions' : 0,
+            'voided_transactions' : 0,
+            'successful_transactions' : 0,
+            'non_voided_transactions' : 0,
+            'median_installment_amount' : 0,
+            'overall_transactions' : 0
+        }
+        list_endorser.append([i['NOME_ENDOSSER'], predict(i['NOME_ENDOSSER'], data)])
+    return list_endorser
