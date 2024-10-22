@@ -1,5 +1,8 @@
 import pandas as pd
+import sys
+import os
 from datetime import datetime
+
 from app.repositories.database import PostgresConnection
 
 # Function to transform the data
@@ -40,6 +43,12 @@ def load_data_to_db(df, connection):
     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     
+    
+    test =  PostgresConnection(
+        
+    )
+    test.__enter__()
+
     for _, row in df.iterrows():
         values = (
             row['id'], row['supplier_reference_id'], row['installment'], row['month_due_date'],
@@ -47,7 +56,7 @@ def load_data_to_db(df, connection):
             row['segmento_products'], row['segmento_services'], row['kind_type_1'],
             row['kind_type_2'], row['result']
         )
-        connection.execute_query(insert_query, values)
+        test.execute_query(insert_query, values)
 
 # Main ETL function
 def run_etl(input_file):
