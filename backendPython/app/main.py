@@ -1,7 +1,7 @@
 # app/main.py
 
 from fastapi import FastAPI, HTTPException
-from app.config import DatabaseConfig
+# from app.config import DatabaseConfig
 from app.services.ia_model import InputData,model,scaler,base_with_names
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
@@ -9,11 +9,19 @@ from datetime import date
 import datetime
 import logging
 import json
+from app.repositories.database import PostgresConnection
+import os
+from dotenv import load_dotenv
+from app.config import DatabaseConfig
+
+db_x = DatabaseConfig()
+
+
 
 app = FastAPI()
-
-db_params = DatabaseConfig.get_params()
-
+if __name__ == '__main__':
+    # Obtém os parâmetros do banco de dados do arquivo .env
+    db_params = DatabaseConfig.get_params()
 # Logger setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,7 +66,7 @@ async def predict(name: str, data: InputData):
         X_scaled = preprocess_data(data)
         # Predicting score
         score = model.predict(X_scaled)
-
+       
         return {    
             'final_score': int(score[0]),
             'input_variables': data,
@@ -94,3 +102,40 @@ async def get_all_score_result():
     except Exception as e:
         logger.error(f"Error in fetching all scores: {str(e)}")
         raise HTTPException(status_code=500, detail="Error in retrieving scores.")
+
+@app.get("/insert-data")
+async def insert_data():
+    
+    """
+    Insert data in table
+    """
+    sql = """
+    INSERT INTO public.ai_score_results(final_score, input_variables, endorser_name) VALUES (%s,%s,%s);
+    """
+    data = await get_all_score_result()
+    with PostgresConnection() as db:
+        for d in data:  
+            dict_endoser  = {
+            'renegotiation_delay_days' : d['input_variables'].renegotiation_delay_days,
+            'segment_products_count' : d['input_variables'].segment_products_count,
+            'segment_services_count' : d['input_variables'].segment_services_count,
+            'ongoing_transactions' : d['input_variables'].ongoing_transactions,
+            'voided_transactions' : d['input_variables'].voided_transactions,
+            'successful_transactions' : d['input_variables'].successful_transactions,
+            'non_voided_transactions' : d['input_variables'].non_voided_transactions,
+            'median_installment_amount' : d['input_variables'].non_voided_transactions,
+            'overall_transactions' : d['input_variables'].overall_transactions
+            }
+            
+            try:
+                final_score = d['final_score']
+                input_variables = json.dumps(dict_endoser)
+                endorser_name = str(d['endorser_name'])
+                db.execute_query(sql, (final_score, input_variables, endorser_name))
+                logger.info(f"Successfully inserted record for endorser: {endorser_name}")
+                c+=1
+                print(c)
+            except Exception as e:
+                logger.error(f'Error inserting record for endorser {d['endorser_name']}')
+            
+    return data
