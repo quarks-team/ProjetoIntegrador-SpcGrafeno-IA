@@ -372,7 +372,7 @@ class Transform:
 
 if __name__ == "__main__":
     # Define file_path, type and separator
-    file_path = 'C:\\Developer\\duplicates_table.csv'  
+    file_path = 'C:\\Developer\\dataset\\duplicates_table.csv'  
     file_type = 'csv'
     separator = ','
     # Instantiate the transformer and load the DataFrame from the specified file
@@ -393,7 +393,7 @@ if __name__ == "__main__":
     base_duplicates.select_useful_columns(selected_columns)
 
     # Define file_path, type and separator
-    file_path = 'C:\\Developer\\supplier_table.csv'  
+    file_path = 'C:\\Developer\\dataset\\supplier_table.csv'  
     # Instantiate the transformer and load the DataFrame from the specified file
     auxiliar_base = Transform(file_path, file_type, separator)
     df_auxiliar = auxiliar_base.get_data()
@@ -488,5 +488,5 @@ if __name__ == "__main__":
     base_duplicates.remove_accent('supplier_name')
     base_duplicates.remove_punctuations('supplier_name')
     base_duplicates.create_sectors_industry_columns('supplier_name', industry_sector)
-    
+    base_duplicates.drop_columns(['supplier_name'])
     base_duplicates.save_dataframe_to_pickle('dataframe.pkl')
