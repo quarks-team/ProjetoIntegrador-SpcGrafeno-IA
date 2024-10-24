@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from unidecode import unidecode
+import string
+import joblib
+from collections import Counter
 
 class Transform:
     def __init__(self, file_path: str, file_type: str = 'csv', separator: str = ','):
@@ -53,18 +56,21 @@ class Transform:
         """
         return self.df
 
-    def encode_categorical_columns(self, column:list):
+    def encode_categorical_columns(self, column:str):
         """
         Applies One-Hot Encoding to the selected categorical columns.
         It only transforms one column at a time
         """
-        categorical_colums = self.df[column]
+        categorical_attributes = [column]
+        categorical_columns = self.df[categorical_attributes]
+        # Instance and train One Hot Encoder
         encoder = OneHotEncoder(handle_unknown='ignore')
-        encoder.fit(categorical_colums)
-        encoded = encoder.transform(categorical_colums).toarray()
+        encoder.fit(categorical_columns)
+        # Codify the categorical columns and transform in a dataframe
+        encoded = encoder.transform(categorical_columns).toarray()
         enc_train = pd.DataFrame(data = encoded, columns=encoder.categories_)
         self.df = pd.concat([self.df, enc_train], axis=1)
-        self.df.drop(column, axis=1, inplace=True)
+        self.df.drop(categorical_attributes, axis=1, inplace=True)
 
         return self.df
 
@@ -331,10 +337,42 @@ class Transform:
         self.df = self.df[self.df[column].apply(lambda x: len(str(x)) <= 2)]
         return self.df
         
+    def reset_dataframe_index(self):
+        """ Reset the indexes of the dataframe"""
+        self.df = self.df.reset_index(drop=True)
+        return self.df
+    
+    def remove_punctuations(self, column: str):
+        """Removes punctuation from the specified column of the DataFrame using string.punctuation."""
+        # Creates a translation table to remove punctuation characters
+        removal_table  = str.maketrans('', '', string.punctuation)
+
+        # Aplica a tabela de tradução à coluna do DataFrame
+        self.df[column] = self.df[column].apply(lambda texto: texto.translate(removal_table))
+        return self.df
+
+    def create_sectors_industry_columns(self, column:str, words:list):
+        """Creates a new column in the DataFrame for each word in the list,
+        filled with 1 if the word is found in the specified column, otherwise 0."""
+        self.df['OUTROS'] = 0
+        for word in words:
+            # Create a new column with the name of the word, checking if it exists in the specified column
+            self.df[word] = self.df[column].apply(lambda x: 1 if word in str(x) else 0)
+        # Update 'Others' column where none of the words are found
+        self.df['OUTROS'] = self.df[['OUTROS'] + words].sum(axis=1).apply(lambda x: 1 if x == 0 else 0)
+        return self.df
+
+    def save_dataframe_to_pickle(self, filename:str):
+        """Saves the given DataFrame to a pickle file using joblib."""
+        try:
+            joblib.dump(self.df, filename)
+            print(f"DataFrame saved to {filename}")
+        except Exception as e:
+            print(f"An error occurred while saving the DataFrame: {e}")
 
 if __name__ == "__main__":
     # Define file_path, type and separator
-    file_path = 'C:\\Developer\\dataset\\duplicates_table.csv'  
+    file_path = 'C:\\Developer\\duplicates_table.csv'  
     file_type = 'csv'
     separator = ','
     # Instantiate the transformer and load the DataFrame from the specified file
@@ -355,7 +393,7 @@ if __name__ == "__main__":
     base_duplicates.select_useful_columns(selected_columns)
 
     # Define file_path, type and separator
-    file_path = 'C:\\Developer\\dataset\\supplier_table.csv'  
+    file_path = 'C:\\Developer\\supplier_table.csv'  
     # Instantiate the transformer and load the DataFrame from the specified file
     auxiliar_base = Transform(file_path, file_type, separator)
     df_auxiliar = auxiliar_base.get_data()
@@ -382,13 +420,12 @@ if __name__ == "__main__":
     # ONE-HOT-ENCODING
     # It only transforms one column at a time
     # encoding segment's column
-    column_to_encode = ['segment']
-    base_duplicates.encode_categorical_columns(column=column_to_encode)
+    base_duplicates.encode_categorical_columns(column='segment')
     # Drop useless columns
     columns_to_drop = ['supplier_id']
     base_duplicates.drop_columns(columns=columns_to_drop)    
     # Filtering duplicates not equal acive
-    base_duplicates.encode_categorical_columns(['status'])
+    base_duplicates.encode_categorical_columns('status')
 
     df_duplicates = base_duplicates.get_data()
 
@@ -429,6 +466,27 @@ if __name__ == "__main__":
     # Remove useless data
     base_duplicates.drop_not_state('locate')
     # Encode 
-    base_duplicates.encode_categorical_columns(['locate'])
+    
     # print(base_duplicates.get_data())
-    print(base_duplicates.get_data().isna().sum())
+    base_duplicates.reset_dataframe_index()
+    base_duplicates.encode_categorical_columns('locate')
+    print(base_duplicates.get_data())
+
+    supplier_name = base_duplicates.get_data()['supplier_name']
+    supplier_name = supplier_name.sort_values().drop_duplicates().str.upper()
+    text = ' '.join(supplier_name)
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    words = text.split()
+    cont = Counter(words)
+    
+    for word, frequency in cont.most_common():
+        print(f"{word}")
+    print(len(cont))
+
+    industry_sector = ['COMERCIO', 'INDUSTRIA', 'DISTRIBUIDORA', 'PRODUTOS', 'PLASTICOS', 'QUIMICA', 'SERVICOS', 'ALIMENTOS', 'METAIS', 'EMBALAGENS', 'TEXTIL', 'ELETRONICO', 'ELETRICOS', 'AGRICOLAS', 'MEDICAMENTOS', 'FRIGORIFICO', 'PECAS', 'LOGISTICA', 'COMPONENTES', 'AGROPECUARIA', 'TRADING', 'BEBIDAS', 'SUPRIMENTOS', 'TRANSPORTE', 'SIDERURGICOS', 'FARMACIA', 'DIAGNOSTICOS', 'CONSTRUCOES', 'CONSULTORIA', 'FINANCEIRA', 'ARGAMASSA', 'FABRICAN', 'PETROLEO', 'TERMOPLASTICOS', 'METALURGICOS', 'SUPLEMENTOS', 'FUNDICAO', 'VEICULOS', 'EQUIPAMENTOS']
+    base_duplicates.to_uppercase('supplier_name')
+    base_duplicates.remove_accent('supplier_name')
+    base_duplicates.remove_punctuations('supplier_name')
+    base_duplicates.create_sectors_industry_columns('supplier_name', industry_sector)
+    
+    base_duplicates.save_dataframe_to_pickle('dataframe.pkl')
