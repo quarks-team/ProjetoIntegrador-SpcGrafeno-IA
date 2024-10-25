@@ -1,76 +1,116 @@
 import pandas as pd
-import sys
-import os
 from datetime import datetime
-
 from app.repositories.database import PostgresConnection
 
-# Function to transform the data
-def transform_data(df):
-    # Create the 'installment' column: difference between due_date and created_at in months
+# Função para detectar segmentos dentro dos dados de duplicatas
+def detectar_segmentos(df, endossantes_ids):
+    segmentos = []
+
+    for idx, row in df.iterrows():
+        # nome_lower = str(row['name']).lower()  # Padronizar para minúsculas
+        
+        # Verificar se o item é endossante
+        if row['id'] in endossantes_ids:
+            segmentos.append("Endossante")
+        # Caso não seja endossante, verificar as palavras-chave para "Fundo"
+        elif any(word in nome_lower for word in ["stg", "fidc", "investimento", "investimentos", "fgts", "finan", "invest", "credito"]):
+            segmentos.append("Fundo")
+        # Caso o nome tenha "teste", classificar como "Outros"
+        elif "teste" in nome_lower:
+            segmentos.append("Outros")
+        # Se não corresponder a nenhum dos critérios anteriores, classificar como "Comércio"
+        else:
+            segmentos.append("Comércio")
+    
+    df['segmento'] = segmentos
+    return df
+
+# Função para transformar os dados
+def transform_data(df, endossantes_ids):
+    # Detectar segmentos
+    df = detectar_segmentos(df, endossantes_ids)
+    
+    # Criar a coluna installment: diferença entre due_date e created_at em meses
     df['created_at'] = pd.to_datetime(df['created_at'])
     df['due_date'] = pd.to_datetime(df['due_date'])
     df['installment'] = ((df['due_date'] - df['created_at']).dt.days / 30).astype(int)
     
-    # Create 'month_due_date' and 'quarter_due_date' columns from due_date
+    # Criar colunas month_due_date e quarter_due_date a partir de due_date
     df['month_due_date'] = df['due_date'].dt.month
     df['quarter_due_date'] = df['due_date'].dt.quarter
 
-    # Perform One-Hot Encoding for categorical fields
+    # Realizar One-Hot Encoding para os campos categóricos
     payment_place_dummies = pd.get_dummies(df['payment_place'], prefix='payment_place')
     segmento_dummies = pd.get_dummies(df['segmento'], prefix='segmento')
     kind_dummies = pd.get_dummies(df['kind'], prefix='kind')
 
-    # Concatenate the dummy columns to the original dataframe
+    # Concatenar os dummies ao dataframe original
     df = pd.concat([df, payment_place_dummies, segmento_dummies, kind_dummies], axis=1)
 
-    # Create the 'result' column: 1 if duplicate is finished, 0 if canceled
+    # Criar a coluna result: 1 se duplicata foi finalizada, 0 se cancelada
     df['result'] = df['status'].apply(lambda x: 1 if x == 'finished' else 0 if x == 'canceled' else None)
 
-    # Filter only finished or canceled duplicates
+    # Filtrar apenas as duplicatas finalizadas ou canceladas
     df = df[df['status'].isin(['finished', 'canceled'])]
 
     return df
 
-# Function to load transformed data into the database
+# Função para carregar os dados transformados no banco de dados
 def load_data_to_db(df, connection):
-    # Insert the transformed data into the database
+    # Ajustar a query de inserção com base nos dummies gerados
     insert_query = """
     INSERT INTO ia_score_data (
         score_entry_id, supplier_reference_id, installment, month_due_date, quarter_due_date,
-        payment_place_state_1, payment_place_state_2, segmento_products, segmento_services,
-        kind_type_1, kind_type_2, result
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        result, {payment_place_columns}, {segmento_columns}, {kind_columns}
+    ) VALUES (%s, %s, %s, %s, %s, %s, {payment_place_values}, {segmento_values}, {kind_values})
     """
     
-    
-    test =  PostgresConnection(
-        
+    # Extrair as colunas dinâmicas geradas pelo One-Hot Encoding
+    payment_place_columns = ', '.join([f'payment_place_{col}' for col in df.columns if col.startswith('payment_place_')])
+    segmento_columns = ', '.join([f'segmento_{col}' for col in df.columns if col.startswith('segmento_')])
+    kind_columns = ', '.join([f'kind_{col}' for col in df.columns if col.startswith('kind_')])
+
+    # Adaptar o query para incluir esses valores
+    insert_query = insert_query.format(
+        payment_place_columns=payment_place_columns,
+        segmento_columns=segmento_columns,
+        kind_columns=kind_columns,
+        payment_place_values=', '.join(['%s'] * len(payment_place_columns.split(','))),
+        segmento_values=', '.join(['%s'] * len(segmento_columns.split(','))),
+        kind_values=', '.join(['%s'] * len(kind_columns.split(',')))
     )
-    test.__enter__()
 
     for _, row in df.iterrows():
         values = (
             row['id'], row['supplier_reference_id'], row['installment'], row['month_due_date'],
-            row['quarter_due_date'], row['payment_place_state_1'], row['payment_place_state_2'],
-            row['segmento_products'], row['segmento_services'], row['kind_type_1'],
-            row['kind_type_2'], row['result']
+            row['quarter_due_date'], row['result']
         )
-        test.execute_query(insert_query, values)
+        
+        # Adicionar os valores de One-Hot Encoding das colunas dinâmicas
+        payment_place_values = tuple(row[f'payment_place_{col}'] for col in payment_place_columns.split(', '))
+        segmento_values = tuple(row[f'segmento_{col}'] for col in segmento_columns.split(', '))
+        kind_values = tuple(row[f'kind_{col}'] for col in kind_columns.split(', '))
+        
+        all_values = values + payment_place_values + segmento_values + kind_values
+        connection.execute_query(insert_query, all_values)
 
-# Main ETL function
-def run_etl(input_file):
-    # Load the data
+# Função principal do ETL
+def run_etl(input_file, endossantes_ids):
+    # Carregar os dados
     df = pd.read_excel(input_file)
 
-    # Transform the data
-    transformed_df = transform_data(df)
+    # Transformar os dados
+    transformed_df = transform_data(df, endossantes_ids)
 
-    # Connect to the database and load the transformed data
+    # Conectar ao banco e carregar os dados transformados
     with PostgresConnection() as connection:
         load_data_to_db(transformed_df, connection)
 
-# Execute the ETL with the input file
+# Executar o ETL com o arquivo de entrada
 if __name__ == "__main__":
-    input_file = 'C:\\Users\\Noite\\Desktop\\ProjetoIntegrador-SpcGrafeno-IA\\old_table.xlsx'
-    run_etl(input_file)
+    input_file = 'C:\\Users\\Noite\\Desktop\\ProjetoIntegrador-SpcGrafeno-IA\\asset_trade_bills_transformada.xlsx'
+    
+    # Definir os IDs de endossantes (pode ser carregado de outra fonte ou calculado anteriormente)
+    endossantes_ids = [123, 456, 789]  # Exemplo de IDs de endossantes
+    
+    run_etl(input_file, endossantes_ids)
