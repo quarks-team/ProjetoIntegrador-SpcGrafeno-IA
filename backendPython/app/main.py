@@ -1,6 +1,6 @@
 # app/main.py
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException  # Adicionar 'File' aqui
 # from app.config import DatabaseConfig
 from app.services.ia_model import InputData,model,scaler,base_with_names
 import numpy as np
@@ -13,8 +13,17 @@ from app.repositories.database import PostgresConnection
 import os
 from dotenv import load_dotenv
 from app.config import DatabaseConfig
+import pandas as pd
+from io import BytesIO
+import logging
+
+from app.services.user_service import UserService  # Serviço de inserção de usuários no banco
 
 db_x = DatabaseConfig()
+
+# Logger setup
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 
@@ -139,3 +148,25 @@ async def insert_data():
                 logger.error(f'Error inserting record for endorser {d['endorser_name']}')
             
     return data
+
+
+@app.post("/upload-csv/")
+async def upload_csv(file: UploadFile = File(...)):
+    """
+    Endpoint que recebe o arquivo CSV e insere os dados no banco de dados.
+    """
+    if not file.filename.endswith("participants.csv"):
+        raise HTTPException(status_code=400, detail="Arquivo não é um CSV")
+
+    try:
+        # Ler o conteúdo do arquivo CSV usando pandas
+        content = await file.read()
+        data = pd.read_csv(BytesIO(content))
+
+        # Inserir os dados no banco de dados
+        UserService.insert_users_from_dataframe(data)
+
+        return {"detail": f"{file.filename} processado com sucesso."}
+    except Exception as e:
+        logger.error(f"Erro ao processar o arquivo CSV: {str(e)}")
+        raise HTTPException(status_code=500, detail="Erro ao processar o arquivo CSV")
