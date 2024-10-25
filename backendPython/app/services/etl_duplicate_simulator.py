@@ -68,11 +68,7 @@ class Transform:
         encoder.fit(categorical_columns)
         # Codify the categorical columns and transform in a dataframe
         encoded = encoder.transform(categorical_columns).toarray()
-
-        encoded_column_names = encoder.get_feature_names_out(categorical_attributes)
-        encoded_column_names = [name.split('_')[1] for name in encoded_column_names] 
-
-        enc_train = pd.DataFrame(data = encoded, columns=encoded_column_names)
+        enc_train = pd.DataFrame(data = encoded, columns=encoder.categories_)
         self.df = pd.concat([self.df, enc_train], axis=1)
         self.df.drop(categorical_attributes, axis=1, inplace=True)
 
@@ -376,7 +372,7 @@ class Transform:
 
 if __name__ == "__main__":
     # Define file_path, type and separator
-    file_path = 'C:\\Users\\Noite\\Downloads\\spcgrafeno\\asset_trade_bills.csv'
+    file_path = 'C:\\Developer\\dataset\\duplicates_table.csv'  
     file_type = 'csv'
     separator = ','
     # Instantiate the transformer and load the DataFrame from the specified file
@@ -397,7 +393,7 @@ if __name__ == "__main__":
     base_duplicates.select_useful_columns(selected_columns)
 
     # Define file_path, type and separator
-    file_path = 'C:\\Users\\Noite\\Downloads\\spcgrafeno\\asset_parts.csv'
+    file_path = 'C:\\Developer\\dataset\\supplier_table.csv'  
     # Instantiate the transformer and load the DataFrame from the specified file
     auxiliar_base = Transform(file_path, file_type, separator)
     df_auxiliar = auxiliar_base.get_data()
@@ -433,14 +429,14 @@ if __name__ == "__main__":
 
     df_duplicates = base_duplicates.get_data()
 
-    # columns_to_rename = {
-    #     df_duplicates.iloc[:,4].name: 'goods',
-    #     df_duplicates.iloc[:,5].name: 'services',
-    #     df_duplicates.iloc[:,6].name: 'active',
-    #     df_duplicates.iloc[:,7].name: 'canceled',
-    #     df_duplicates.iloc[:,8].name: 'finished',
-    # }
-    # base_duplicates.rename_columns(columns_to_rename)
+    columns_to_rename = {
+        df_duplicates.iloc[:,4].name: 'goods',
+        df_duplicates.iloc[:,5].name: 'services',
+        df_duplicates.iloc[:,6].name: 'active',
+        df_duplicates.iloc[:,7].name: 'canceled',
+        df_duplicates.iloc[:,8].name: 'finished',
+    }
+    base_duplicates.rename_columns(columns_to_rename)
     base_duplicates.drop_na('supplier_name')
     # Filter not active
     # base_duplicates.get_data()
@@ -474,7 +470,7 @@ if __name__ == "__main__":
     # print(base_duplicates.get_data())
     base_duplicates.reset_dataframe_index()
     base_duplicates.encode_categorical_columns('locate')
-    # print(base_duplicates.get_data())
+    print(base_duplicates.get_data())
 
     supplier_name = base_duplicates.get_data()['supplier_name']
     supplier_name = supplier_name.sort_values().drop_duplicates().str.upper()
@@ -494,5 +490,3 @@ if __name__ == "__main__":
     base_duplicates.create_sectors_industry_columns('supplier_name', industry_sector)
     base_duplicates.drop_columns(['supplier_name'])
     base_duplicates.save_dataframe_to_pickle('dataframe.pkl')
-    df = base_duplicates.get_data()
-    
