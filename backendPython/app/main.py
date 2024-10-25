@@ -1,6 +1,6 @@
 # app/main.py
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException,Body
 # from app.config import DatabaseConfig
 from app.services.ia_model import InputData,model,scaler,base_with_names
 import numpy as np
@@ -13,7 +13,8 @@ from app.repositories.database import PostgresConnection
 import os
 from dotenv import load_dotenv
 from app.config import DatabaseConfig
-
+import pandas as pd
+from pydantic import BaseModel
 db_x = DatabaseConfig()
 
 
@@ -139,3 +140,8 @@ async def insert_data():
                 logger.error(f'Error inserting record for endorser {d['endorser_name']}')
             
     return data
+
+@app.post('/predict-duplicate/')
+async def predict_duplicate(data: dict = Body(...)):
+    segment = data.get("segment")
+    return {"segment": segment}
