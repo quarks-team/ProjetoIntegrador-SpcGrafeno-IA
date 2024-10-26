@@ -3,6 +3,7 @@
 from fastapi import FastAPI, HTTPException,Body
 # from app.config import DatabaseConfig
 from app.services.ia_model import InputData,model,scaler,base_with_names
+from app.services.ia_duplicate_sumilator import model_simulator,scaler_simulator,DuplicateSimulator
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from datetime import date
@@ -145,3 +146,24 @@ async def insert_data():
 async def predict_duplicate(data: dict = Body(...)):
     segment = data.get("segment")
     return {"segment": segment}
+
+app.post('/predict-duplicate/')
+async def predict_duplicate(info: DuplicateSimulator):
+    """
+    Teste
+    """
+
+    # Criar o DataFrame de entrada com base nos parâmetros
+    input_data = pd.DataFrame(0, index=range(1), columns=[
+        'goods', 'services', 'month', 'quarter', 'installment', 'AL', 'AM', 'AP',
+        'BA', 'CE', 'ES', 'GO', 'MG', 'MS', 'PA', 'PI', 'PR', 'RJ', 'RS', 'SC',
+        'SE', 'SP', 'TO', 'OUTROS', 'COMERCIO', 'INDUSTRIA', 'DISTRIBUIDORA',
+        'PRODUTOS', 'PLASTICOS', 'QUIMICA', 'SERVICOS', 'ALIMENTOS', 'METAIS',
+        'EMBALAGENS', 'TEXTIL', 'ELETRONICO', 'ELETRICOS', 'AGRICOLAS',
+        'MEDICAMENTOS', 'FRIGORIFICO', 'PECAS', 'LOGISTICA', 'COMPONENTES',
+        'AGROPECUARIA', 'TRADING', 'BEBIDAS', 'SUPRIMENTOS', 'TRANSPORTE',
+        'SIDERURGICOS', 'FARMACIA', 'DIAGNOSTICOS', 'CONSTRUCOES', 'CONSULTORIA',
+        'FINANCEIRA', 'ARGAMASSA', 'FABRICAN', 'PETROLEO', 'TERMOPLASTICOS',
+        'METALURGICOS', 'SUPLEMENTOS', 'FUNDICAO', 'VEICULOS', 'EQUIPAMENTOS'
+    ])
+    
