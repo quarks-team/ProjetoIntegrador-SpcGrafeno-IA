@@ -8,7 +8,7 @@ def detectar_segmentos(df, endossantes_ids):
 
     for idx, row in df.iterrows():
         nome_lower = str(row['name']).lower()  # Padronizar para minúsculas
-        
+
         # Verificar se o item é endossante
         if row['id'] in endossantes_ids:
             segmentos.append("Endossante")
@@ -106,9 +106,12 @@ def run_etl(input_file, endossantes_ids):
     with PostgresConnection() as connection:
         load_data_to_db(transformed_df, connection)
 
+    # Salvar o arquivo transformado em um novo arquivo com nome genérico
+    transformed_df.to_excel("arquivo_transformado.xlsx", index=False)
+
 # Executar o ETL com o arquivo de entrada
 if __name__ == "__main__":
-    input_file = 'C:\\Users\\Noite\\Desktop\\ProjetoIntegrador-SpcGrafeno-IA\\asset_trade_bills_transformada.xlsx'
+    input_file = 'C:\\Users\\Noite\\Desktop\\ProjetoIntegrador-SpcGrafeno-IA\\arquivo_original.xlsx'
     
     # Definir os IDs de endossantes (pode ser carregado de outra fonte ou calculado anteriormente)
     endossantes_ids = [123, 456, 789]  # Exemplo de IDs de endossantes
