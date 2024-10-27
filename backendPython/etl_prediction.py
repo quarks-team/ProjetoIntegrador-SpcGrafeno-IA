@@ -7,7 +7,7 @@ def detectar_segmentos(df, endossantes_ids):
     segmentos = []
 
     for idx, row in df.iterrows():
-        # nome_lower = str(row['name']).lower()  # Padronizar para minúsculas
+        nome_lower = str(row['name']).lower()  # Padronizar para minúsculas
         
         # Verificar se o item é endossante
         if row['id'] in endossantes_ids:
