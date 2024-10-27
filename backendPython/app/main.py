@@ -3,9 +3,11 @@
 from fastapi import FastAPI, HTTPException,Body
 # from app.config import DatabaseConfig
 from app.services.ia_model import InputData,model,scaler,base_with_names
+from app.services.ia_duplicate_sumilator import model_simulator,scaler_simulator,DuplicateSimulator
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from datetime import date
+from datetime import datetime as dt
 import datetime
 import logging
 import json
@@ -141,7 +143,62 @@ async def insert_data():
             
     return data
 
+
 @app.post('/predict-duplicate/')
-async def predict_duplicate(data: dict = Body(...)):
-    segment = data.get("segment")
-    return {"segment": segment}
+async def predict_duplicate(data:DuplicateSimulator):
+    # info: DuplicateSimulator
+    """
+    Teste
+    """
+    # Criar o DataFrame de entrada com base nos parâmetros
+    input_data = pd.DataFrame(0, index=range(1), columns=[
+        'goods', 'services', 'month', 'quarter', 'installment', 'AL', 'AM', 'AP',
+        'BA', 'CE', 'ES', 'GO', 'MG', 'MS', 'PA', 'PI', 'PR', 'RJ', 'RS', 'SC',
+        'SE', 'SP', 'TO', 'OUTROS', 'COMERCIO', 'INDUSTRIA', 'DISTRIBUIDORA',
+        'PRODUTOS', 'PLASTICOS', 'QUIMICA', 'SERVICOS', 'ALIMENTOS', 'METAIS',
+        'EMBALAGENS', 'TEXTIL', 'ELETRONICO', 'ELETRICOS', 'AGRICOLAS',
+        'MEDICAMENTOS', 'FRIGORIFICO', 'PECAS', 'LOGISTICA', 'COMPONENTES',
+        'AGROPECUARIA', 'TRADING', 'BEBIDAS', 'SUPRIMENTOS', 'TRANSPORTE',
+        'SIDERURGICOS', 'FARMACIA', 'DIAGNOSTICOS', 'CONSTRUCOES', 'CONSULTORIA',
+        'FINANCEIRA', 'ARGAMASSA', 'FABRICAN', 'PETROLEO', 'TERMOPLASTICOS',
+        'METALURGICOS', 'SUPLEMENTOS', 'FUNDICAO', 'VEICULOS', 'EQUIPAMENTOS'
+    ])
+    
+    if data.segment == 'goods':
+        input_data['goods'] = 1
+    elif data.segment == 'services':
+        input_data['services'] = 1
+    else:
+        print("erro")
+    input_data['month'] = data.month
+    input_data['quarter'] = data.quarter
+    for s in input_data.iloc[:,5:23].columns:
+        if data.state == str(s):
+            input_data[f'{s}'] = 1
+    for a in data.area:
+        for c in input_data.iloc[:,23:63].columns:
+            if a == str(c):
+                input_data[f'{c}'] = 1
+    
+    created_date = dt.strptime(data.created_date, "%d-%m-%Y")
+    finalization_date = dt.strptime(data.date, "%d-%m-%Y")
+    difference = finalization_date - created_date
+    input_data['installment'] = difference.days
+    columns_to_scale = ['installment','quarter', 'month']
+    input_data[columns_to_scale] = scaler_simulator.fit_transform(input_data[columns_to_scale])
+    result_duplicate = model_simulator.predict(input_data)
+    proba = model_simulator.predict_proba(input_data)
+    print(result_duplicate)
+    print(proba)
+    result_duplicate = result_duplicate[0]
+    # if result_duplicate == 0:
+    #     proba = round(proba[0][0], 2)
+    # else:
+    proba = round(proba[0][1], 2)
+
+    print(result_duplicate)
+    print(proba)
+    return { 
+        "probability": proba
+        }
+    
