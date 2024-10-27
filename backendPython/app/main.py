@@ -191,12 +191,14 @@ async def predict_duplicate(data:DuplicateSimulator):
     print(result_duplicate)
     print(proba)
     result_duplicate = result_duplicate[0]
-    if result_duplicate == 0:
-        proba = round(proba[0][0], 2)
-    else:
-        proba = round(proba[0][1], 2)
+    # if result_duplicate == 0:
+    #     proba = round(proba[0][0], 2)
+    # else:
+    proba = round(proba[0][1], 2)
+
+    print(result_duplicate)
+    print(proba)
     return { 
-        "result": result_duplicate,
         "probability": proba
-            }
+        }
     
