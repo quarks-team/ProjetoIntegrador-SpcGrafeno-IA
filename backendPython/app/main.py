@@ -17,11 +17,26 @@ from dotenv import load_dotenv
 from app.config import DatabaseConfig
 import pandas as pd
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+
 db_x = DatabaseConfig()
 
 
 
 app = FastAPI()
+# Configure o CORS
+origins = [
+    "http://localhost:9090",
+    "http://127.0.0.1:9090"  # URL do seu frontend
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],  # permite todos os métodos
+    allow_headers=["*"],  # permite todos os cabeçalhos
+)
 if __name__ == '__main__':
     # Obtém os parâmetros do banco de dados do arquivo .env
     db_params = DatabaseConfig.get_params()
@@ -180,8 +195,8 @@ async def predict_duplicate(data:DuplicateSimulator):
             if a == str(c):
                 input_data[f'{c}'] = 1
     
-    created_date = dt.strptime(data.created_date, "%d-%m-%Y")
-    finalization_date = dt.strptime(data.date, "%d-%m-%Y")
+    created_date = dt.strptime(data.created_date, "%d/%m/%Y")
+    finalization_date = dt.strptime(data.date, "%d/%m/%Y")
     difference = finalization_date - created_date
     input_data['installment'] = difference.days
     columns_to_scale = ['installment','quarter', 'month']
