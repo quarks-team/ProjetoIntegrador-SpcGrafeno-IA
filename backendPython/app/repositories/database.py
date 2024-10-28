@@ -50,3 +50,7 @@ class PostgresConnection:
         if self.connection:
             self.connection.close()
             print("Connection closed")
+
+if __name__ == '__main__':
+    # Obtém os parâmetros do banco de dados do arquivo .env
+    db_params = DatabaseConfig.get_params()
