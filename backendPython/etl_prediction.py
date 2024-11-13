@@ -1,6 +1,11 @@
 import pandas as pd
+import logging
 from datetime import datetime
 from app.repositories.database import PostgresConnection
+
+# Configuração de logs
+logging.basicConfig(filename="insercao_dados.log", level=logging.INFO, 
+                    format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Função para detectar segmentos dentro dos dados de duplicatas
 def detectar_segmentos(df, endossantes_ids):
@@ -93,6 +98,7 @@ def load_data_to_db(df, connection):
         
         all_values = values + payment_place_values + segmento_values + kind_values
         connection.execute_query(insert_query, all_values)
+        logging.info(f"Inserção bem-sucedida para registro ID {row['id']}.")
 
 # Função principal do ETL
 def run_etl(input_file, endossantes_ids):
