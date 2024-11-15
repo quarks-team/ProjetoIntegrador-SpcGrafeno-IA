@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException,Body
 # from app.config import DatabaseConfig
 from app.services.ia_model import InputData,model,scaler,base_with_names
 from app.services.ia_duplicate_sumilator import model_simulator,scaler_simulator,DuplicateSimulator
+from app.services.predict_duplicates import PredictDuplicate
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from datetime import date
@@ -216,4 +217,9 @@ async def predict_duplicate(data:DuplicateSimulator):
     return { 
         "probability": proba
         }
+    
+@app.post('/predict-states')
+async def predict_states(data:PredictDuplicate):
+    result = data.predict_duplicates_future()
+    return result
     
