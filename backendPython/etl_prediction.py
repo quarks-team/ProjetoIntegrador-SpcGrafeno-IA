@@ -10,7 +10,6 @@ logging.basicConfig(filename="insercao_dados.log", level=logging.INFO,
 # Função para detectar segmentos dentro dos dados de duplicatas
 def detectar_segmentos(df, endossantes_ids):
     segmentos = []
-
     for idx, row in df.iterrows():
         nome_lower = str(row['name']).lower()
         if row['id'] in endossantes_ids:
@@ -21,7 +20,6 @@ def detectar_segmentos(df, endossantes_ids):
             segmentos.append("Outros")
         else:
             segmentos.append("Comércio")
-    
     df['segmento'] = segmentos
     return df
 
@@ -66,33 +64,42 @@ def load_data_to_db(df, connection):
         kind_values=', '.join(['%s'] * len(kind_columns.split(',')))
     )
 
-    for _, row in df.iterrows():
-        try:
-            values = (
-                row['id'], row['supplier_reference_id'], row['installment'], row['month_due_date'],
-                row['quarter_due_date'], row['result']
-            )
+    with connection as conn:
+        conn.begin()  # Iniciar a transação
+        for _, row in df.iterrows():
+            try:
+                values = (
+                    row['id'], row['supplier_reference_id'], row['installment'], row['month_due_date'],
+                    row['quarter_due_date'], row['result']
+                )
 
-            payment_place_values = tuple(row[f'payment_place_{col}'] for col in payment_place_columns.split(', '))
-            segmento_values = tuple(row[f'segmento_{col}'] for col in segmento_columns.split(', '))
-            kind_values = tuple(row[f'kind_{col}'] for col in kind_columns.split(', '))
-            all_values = values + payment_place_values + segmento_values + kind_values
+                payment_place_values = tuple(row[f'payment_place_{col}'] for col in payment_place_columns.split(', '))
+                segmento_values = tuple(row[f'segmento_{col}'] for col in segmento_columns.split(', '))
+                kind_values = tuple(row[f'kind_{col}'] for col in kind_columns.split(', '))
+                all_values = values + payment_place_values + segmento_values + kind_values
 
-            connection.execute_query(insert_query, all_values)
-            logging.info(f"Inserção bem-sucedida para registro ID {row['id']}.")
+                conn.execute_query(insert_query, all_values)
+                logging.info(f"Inserção bem-sucedida para registro ID {row['id']}.")
 
-        except Exception as e:
-            logging.error(f"Falha ao inserir registro ID {row['id']}: {str(e)}")
-            continue
+            except Exception as e:
+                logging.error(f"Falha ao inserir registro ID {row['id']}: {str(e)}")
+                conn.rollback()  # Reverte a transação em caso de erro
+                continue
+        conn.commit()  # Confirma a transação após todas as inserções
 
 # Função principal do ETL
 def run_etl(input_file, endossantes_ids):
+    # Carregar os dados
     df = pd.read_excel(input_file)
+
+    # Transformar os dados
     transformed_df = transform_data(df, endossantes_ids)
 
+    # Conectar ao banco e carregar os dados transformados
     with PostgresConnection() as connection:
         load_data_to_db(transformed_df, connection)
 
+    # Salvar o arquivo transformado com nome genérico
     transformed_df.to_excel("arquivo_transformado.xlsx", index=False)
 
 if __name__ == "__main__":
