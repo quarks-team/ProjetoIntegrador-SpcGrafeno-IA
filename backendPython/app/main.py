@@ -1,11 +1,12 @@
 # app/main.py
 
-from fastapi import FastAPI, HTTPException,Body
+from fastapi import FastAPI, HTTPException,Body, UploadFile
 # from app.config import DatabaseConfig
 from app.services.ia_model import InputData,model,scaler,base_with_names
 from app.services.ia_duplicate_sumilator import model_simulator,scaler_simulator,DuplicateSimulator
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 from datetime import date
 from datetime import datetime as dt
 import datetime
@@ -18,7 +19,9 @@ from app.config import DatabaseConfig
 import pandas as pd
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-
+import prophet
+from prophet import Prophet
+from prophet.plot import plot_plotly, plot_components_plotly
 db_x = DatabaseConfig()
 
 
@@ -217,3 +220,126 @@ async def predict_duplicate(data:DuplicateSimulator):
         "probability": proba
         }
     
+@app.post('/upload-csv/')
+async def upload_data(file: UploadFile(...), type_duplicates:str, predict_days: int):
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="The file must be a csv.")
+    try:
+        df = pd.read_csv(file.file,sep=',', low_memory=False)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error to process the file: {str(e)}")
+
+    match type_duplicates:
+        case 'active':
+            active = df[df[df.iloc[:,5].name] == 'active']
+            active = prepare_df(active)
+            active = prepare_df(active,'01/01/2024','30/03/2025')
+            active = prepare_data_prophet(active)
+            steps = 50
+            data_train = prepare_data_train(active, steps)
+            data_test = prepare_data_test(active, steps)
+            model = train_model(data_train)
+            forecast = predict(model, predict_days, 'D') 
+            return forecast
+            
+        case 'finished':
+            finished = df[df[df.iloc[:,5].name] == 'finished']
+            finished = prepare_df(finished)
+            finished = filter_data_df(finished,'01/01/2024','11/11/2024')
+            finished = prepare_data_prophet(finished)
+            steps = 89
+            data_train = prepare_data_train(finished, steps)
+            data_test = prepare_data_test(finished, steps)
+            model = train_model(data_train)
+            forecast = predict(model, predict_days, 'D') 
+            return forecast
+        case 'canceled':
+            canceled = df[(df[df.iloc[:,10].name].notna()) & (df['state'] == 'canceled')]
+            canceled = canceled[(canceled[canceled.iloc[:,10].name].notna()) & (canceled['state'] == 'canceled')]
+            canceled[canceled.iloc[:,10].name] = canceled[canceled.iloc[:,10].name].str.slice(0,10)
+            canceled = canceled.groupby(canceled.iloc[:,10].name).agg({canceled.iloc[:,0].name: 'count'}).reset_index(0)
+            canceled[canceled.iloc[:,0].name] = pd.to_datetime(canceled[canceled.iloc[:,0].name])
+            canceled = canceled.rename(columns={canceled.iloc[:,0].name: "ds", canceled.iloc[:,1].name: "y"})
+            canceled = filter_data_df(df, )
+            canceled = canceled[(canceled['ds'] > '01/01/2024') & (canceled['ds'] < '12/10/2024')]
+            canceled = prepare_data_prophet(canceled)
+            steps = 98
+            data_train = prepare_data_train(canceled, steps)
+            data_test = prepare_data_test(canceled, steps)
+            model = train_model(data_train)
+            forecast = predict(model, predict_days, 'D') 
+            return forecast
+        case 'all':
+            active = df[df[df.iloc[:,5].name] == 'active']
+            active = prepare_df(active)
+            finished = df[df[df.iloc[:,5].name] == 'finished']
+            finished = prepare_df(finished)
+            canceled = df[(df[df.iloc[:,10].name].notna()) & (df['state'] == 'canceled')]
+            canceled = canceled[(canceled[canceled.iloc[:,10].name].notna()) & (canceled['state'] == 'canceled')]
+            canceled[canceled.iloc[:,10].name] = canceled[canceled.iloc[:,10].name].str.slice(0,10)
+            canceled = canceled.groupby(canceled.iloc[:,10].name).agg({canceled.iloc[:,0].name: 'count'}).reset_index(0)
+            canceled[canceled.iloc[:,0].name] = pd.to_datetime(canceled[canceled.iloc[:,0].name])
+            canceled = canceled.rename(columns={canceled.iloc[:,0].name: "ds", canceled.iloc[:,1].name: "y"})
+            
+            active = prepare_df(active,'01/01/2024','30/03/2025')
+            active = prepare_data_prophet(active)
+            finished = filter_data_df(finished,'01/01/2024','11/11/2024')
+            finished = prepare_data_prophet(finished)
+            canceled = filter_data_df(canceled,'01/01/2024','12/10/2024')
+            canceled = prepare_data_prophet(canceled)
+
+            steps = 50
+            data_train = prepare_data_train(active, steps)
+            data_test = prepare_data_test(active, steps)
+            model = train_model(data_train)
+            forecast_active = predict(model, predict_days, 'D') 
+
+            steps = 89
+            data_train = prepare_data_train(finished, steps)
+            data_test = prepare_data_test(finished, steps)
+            model = train_model(data_train)
+            forecast_finished = predict(model, predict_days, 'D') 
+            
+
+            steps = 98
+            data_train = prepare_data_train(canceled, steps)
+            data_test = prepare_data_test(canceled, steps)
+            model = train_model(data_train)
+            forecast_canceled = predict(model, predict_days, 'D') 
+            return [forecast_active,forecast_finished,forecast_canceled]
+
+def prepare_df(df):
+    df = df[[df.iloc[:,0].name,df.iloc[:,8].name]]
+    df = df.groupby(df.iloc[:,1].name).agg({df.iloc[:,0].name: 'count'}).reset_index(0)
+    df[df.iloc[:,0].name] = pd.to_datetime(df[df.iloc[:,0].name])
+    df = df.rename(columns={df.iloc[:,0].name: "ds", df.iloc[:,1].name: "y"})
+    return df
+
+def filter_data_df(df, firstDate: str, limitDate:str):
+    df = df[(df['ds'] > firstDate) & (df['ds'] < limitDate)]
+    return df
+
+def prepare_data_prophet(df):
+    df = df.set_index('ds')
+    df = df.asfreq('D', fill_value=0.0)
+    df = df.sort_index()
+    df = df.reset_index(0)
+    return df
+
+def prepare_data_train(df, steps: int):
+    data_train = df[:-steps]
+    return data_train
+
+def prepare_data_test(df, steps:int):
+    data_test  = df[-steps:]
+    return data_test
+
+def train_model(train_data):
+    model = Prophet(weekly_seasonality=True, daily_seasonality=False, yearly_seasonality=True)
+    model.fit(train_data)
+    return(model)
+
+def predict(model, period:int,freq: str):
+    next_m = model.make_future_dataframe(periods=period, freq=freq)
+    forecast = model.predict(next_m)
+    return forecast
