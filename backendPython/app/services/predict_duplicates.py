@@ -46,6 +46,8 @@ class PredictDuplicate(BaseModel):
                 next = canceled_model.make_future_dataframe(periods=self.day, freq='D')
                 forecast_canceled = canceled_model.predict(next)
 
-                return [forecast_active, forecast_finished, forecast_canceled]
+                return {"active":forecast_active, 
+                        "finished":forecast_finished,
+                        "canceled": forecast_canceled}
             case _:
                 return 'Is not a valid quantity of days or duplicate state'
