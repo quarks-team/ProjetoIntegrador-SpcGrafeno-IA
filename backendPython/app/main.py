@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException,Body, UploadFile,File,Form
 from app.services.ia_model import InputData,model,scaler,base_with_names
 from app.services.ia_duplicate_sumilator import model_simulator,scaler_simulator,DuplicateSimulator
 from app.services.predict_duplicates import PredictDuplicate
+from app.services.predict_duplicates import PredictDuplicate
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
