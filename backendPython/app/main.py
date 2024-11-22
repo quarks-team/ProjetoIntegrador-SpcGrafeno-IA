@@ -1,6 +1,6 @@
 # app/main.py
 
-from fastapi import FastAPI, HTTPException,Body, UploadFile,File
+from fastapi import FastAPI, HTTPException,Body, UploadFile,File,Form
 # from app.config import DatabaseConfig
 from app.services.ia_model import InputData,model,scaler,base_with_names
 from app.services.ia_duplicate_sumilator import model_simulator,scaler_simulator,DuplicateSimulator
@@ -223,26 +223,33 @@ async def predict_duplicate(data:DuplicateSimulator):
         }
     
 @app.post('/generate_model/')
-async def generate_model(data:PredictDuplicate, file: UploadFile = File(...)):
+async def generate_model(data: str = Form(...) , file: UploadFile = File(...)):
+    data_dict = json.loads(data) 
+    data = PredictDuplicate(**data_dict)
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="The file must be a csv.")
+    
+    
+    if file.content_type != "text/csv":
+        raise HTTPException(status_code=400, detail="O arquivo enviado não é um CSV.")
+    
     try:
         df = pd.read_csv(file.file,sep=',', low_memory=False)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error to process the file: {str(e)}")
 
-    match data.duplicate_state():
+    match data.duplicate_state:
         case 'active':
             active = df[df[df.iloc[:,5].name] == 'active']
             active = prepare_df(active)
-            active = prepare_df(active,'01/01/2024','30/03/2025')
+            active = filter_data_df(active,'01/01/2024','30/03/2025')
             active = prepare_data_prophet(active)
             steps = 50
             data_train = prepare_data_train(active, steps)
             data_test = prepare_data_test(active, steps)
             model = train_model(data_train)
-            forecast = predict(model, data.day(), 'D') 
-            joblib.dump(model, 'active_predict.joblib')
+            forecast = predict(model, data.day, 'D') 
+            joblib.dump(model, 'app\\services\\active_predict.joblib')
 
         case 'finished':
             finished = df[df[df.iloc[:,5].name] == 'finished']
@@ -253,8 +260,8 @@ async def generate_model(data:PredictDuplicate, file: UploadFile = File(...)):
             data_train = prepare_data_train(finished, steps)
             data_test = prepare_data_test(finished, steps)
             model = train_model(data_train)
-            forecast = predict(model, data.day(), 'D') 
-            joblib.dump(model, 'finished_predict.joblib')
+            forecast = predict(model, data.day, 'D') 
+            joblib.dump(model, 'app\\services\\finished_predict.joblib')
 
         case 'canceled':
             canceled = df[(df[df.iloc[:,10].name].notna()) & (df['state'] == 'canceled')]
@@ -263,15 +270,14 @@ async def generate_model(data:PredictDuplicate, file: UploadFile = File(...)):
             canceled = canceled.groupby(canceled.iloc[:,10].name).agg({canceled.iloc[:,0].name: 'count'}).reset_index(0)
             canceled[canceled.iloc[:,0].name] = pd.to_datetime(canceled[canceled.iloc[:,0].name])
             canceled = canceled.rename(columns={canceled.iloc[:,0].name: "ds", canceled.iloc[:,1].name: "y"})
-            canceled = filter_data_df(df, )
-            canceled = canceled[(canceled['ds'] > '01/01/2024') & (canceled['ds'] < '12/10/2024')]
+            canceled = filter_data_df(canceled, '01/01/2024', '12/10/2024')
             canceled = prepare_data_prophet(canceled)
             steps = 98
             data_train = prepare_data_train(canceled, steps)
             data_test = prepare_data_test(canceled, steps)
             model = train_model(data_train)
-            forecast = predict(model, data.day(), 'D') 
-            joblib.dump(model, 'canceled_predict.joblib')
+            forecast = predict(model, data.day, 'D') 
+            joblib.dump(model, 'app\\services\\canceled_predict.joblib')
             
         case 'all':
             active = df[df[df.iloc[:,5].name] == 'active']
@@ -285,7 +291,7 @@ async def generate_model(data:PredictDuplicate, file: UploadFile = File(...)):
             canceled[canceled.iloc[:,0].name] = pd.to_datetime(canceled[canceled.iloc[:,0].name])
             canceled = canceled.rename(columns={canceled.iloc[:,0].name: "ds", canceled.iloc[:,1].name: "y"})
             
-            active = prepare_df(active,'01/01/2024','30/03/2025')
+            active = filter_data_df(active,'01/01/2024','30/03/2025')
             active = prepare_data_prophet(active)
             finished = filter_data_df(finished,'01/01/2024','11/11/2024')
             finished = prepare_data_prophet(finished)
@@ -296,24 +302,24 @@ async def generate_model(data:PredictDuplicate, file: UploadFile = File(...)):
             data_train = prepare_data_train(active, steps)
             data_test = prepare_data_test(active, steps)
             model = train_model(data_train)
-            forecast_active = predict(model, data.day(), 'D') 
-            joblib.dump(model, '/services/active_predict.joblib')
+            forecast_active = predict(model, data.day, 'D') 
+            joblib.dump(model, 'app\\services\\active_predict.joblib')
 
             steps = 89
             data_train = prepare_data_train(finished, steps)
             data_test = prepare_data_test(finished, steps)
             model = train_model(data_train)
-            forecast_finished = predict(model, data.day(), 'D') 
-            joblib.dump(model, '/services/finished_predict.joblib')
+            forecast_finished = predict(model, data.day, 'D') 
+            joblib.dump(model, 'app\\services\\finished_predict.joblib')
 
             steps = 98
             data_train = prepare_data_train(canceled, steps)
             data_test = prepare_data_test(canceled, steps)
             model = train_model(data_train)
-            forecast_canceled = predict(model, data.day(), 'D') 
-            joblib.dump(model, '/services/canceled_predict.joblib')
+            forecast_canceled = predict(model, data.day, 'D') 
+            joblib.dump(model, 'app\\services\\canceled_predict.joblib')
             
-    result = data.predict_duplicates_future()
+    result =  data.predict_duplicates_future()
     return result
 
 
@@ -328,6 +334,7 @@ def prepare_df(df):
     return df
 
 def filter_data_df(df, firstDate: str, limitDate:str):
+    print(df)
     df = df[(df['ds'] > firstDate) & (df['ds'] < limitDate)]
     return df
 
@@ -355,3 +362,8 @@ def predict(model, period:int,freq: str):
     next_m = model.make_future_dataframe(periods=period, freq=freq)
     forecast = model.predict(next_m)
     return forecast
+
+@app.post('/predict-states')
+async def predict_states(data:PredictDuplicate):
+    result = data.predict_duplicates_future()
+    return result
