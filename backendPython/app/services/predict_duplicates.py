@@ -15,6 +15,12 @@ class PredictDuplicate(BaseModel):
     def duplicate_state(self, value):
         self._duplicate_state = value
 
+    def day(self):
+        return self.day
+    
+    def duplicate_state(self):
+        return self.duplicate_state
+
     def predict_duplicates_future(self):
         match self.duplicate_state:
             case 'active':
@@ -29,5 +35,19 @@ class PredictDuplicate(BaseModel):
                 next = canceled_model.make_future_dataframe(periods=self.day, freq='D')
                 forecast = canceled_model.predict(next)
                 return forecast
+        
+            case 'all':
+                next = active_model.make_future_dataframe(periods=self.day, freq='D')
+                forecast_active = active_model.predict(next)
+
+                next = finished_model.make_future_dataframe(periods=self.day, freq='D')
+                forecast_finished = finished_model.predict(next)
+
+                next = canceled_model.make_future_dataframe(periods=self.day, freq='D')
+                forecast_canceled = canceled_model.predict(next)
+
+                return {"active":forecast_active, 
+                        "finished":forecast_finished,
+                        "canceled": forecast_canceled}
             case _:
                 return 'Is not a valid quantity of days or duplicate state'
