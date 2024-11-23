@@ -1,0 +1,20 @@
+[
+    {
+        "_id": "51bf8525-8063-434d-9c72-c229f9e11856",
+        "colId": "history",
+        "containerId": "",
+        "name": "http://127.0.0.1:8000/generate_model/",
+        "url": "http://127.0.0.1:8000/generate_model/",
+        "method": "POST",
+        "sortNum": 0,
+        "created": "2024-11-21T23:59:58.522Z",
+        "modified": "2024-11-22T00:00:34.258Z",
+        "headers": [],
+        "body": {
+            "type": "binary",
+            "raw": "",
+            "form": [],
+            "binary": "../../../../../Users/Noite/Downloads/duplicates_table.csv"
+        }
+    }
+]
