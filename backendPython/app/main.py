@@ -1,11 +1,12 @@
 # app/main.py
 
-from fastapi import FastAPI, HTTPException,Body, UploadFile,File,Form
+from fastapi import FastAPI, HTTPException,Body, UploadFile,File,Form, status
 # from app.config import DatabaseConfig
 from app.services.ia_model import InputData,model,scaler,base_with_names
 from app.services.ia_duplicate_sumilator import model_simulator,scaler_simulator,DuplicateSimulator
 from app.services.predict_duplicates import PredictDuplicate
 from app.services.predict_duplicates import PredictDuplicate
+import app.services.GenerateRecomendationModel as grm
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
@@ -59,6 +60,53 @@ async def startup_event():
 async def root():
     """Endpoint raiz."""
     return {"message": "API está funcionando. Acesse /docs para ver a documentação."}
+
+@app.get("/generate-recomendation-model", status_code=status.HTTP_201_CREATED)
+async def create_recommendation_model():
+    try:
+        # Chama o método para gerar o modelo de recomendação e captura o retorno
+        result = grm.generateRecomendationPkl()
+        return result  # Retorna o resultado completo da função
+    except Exception as e:
+        # Caso ocorra algum erro, retorna 500 (Internal Server Error) com a descrição do erro
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao gerar modelo: {str(e)}"
+        )
+    
+# Modelo de entrada
+class InputData(BaseModel):
+    voided_transactions: int
+    ongoing_transactions: int
+    overall_transactions: int
+    segment_products_count: int
+    segment_services_count: int
+    non_voided_transactions: int
+    successful_transactions: int
+    renegotiation_delay_days: float
+    median_installment_amount: float
+    score: int
+
+@app.post("/recomendation-score/")
+async def recommend(data: InputData):
+    """
+    Gera recomendações para melhorar o score baseado nos dados do endossante.
+    """
+    try:
+        logger.info("Received data for recommendation generation.")
+
+        # Chamar o método do serviço para gerar recomendações
+        input_json = data.dict()
+        logger.debug(f"Input JSON for GRM: {input_json}")
+
+        result = grm.suggest_changes(input_json)
+
+        return result
+    except Exception as e:
+        logger.error(f"Error in generating recommendations: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error in processing the recommendation.")
+    
+
 
 def preprocess_data(data:InputData):
     """ 
